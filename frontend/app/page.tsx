@@ -1,9 +1,24 @@
+"use client";
+
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import FeatureCard from "@/components/FeatureCard";
 import ProgressChart from "@/components/ProgressChart";
 
+
+import { supabase } from "@/lib/supabase";
+
 export default function Home() {
+  const testSupabase = async () => {
+    const { data, error } =
+      await supabase.auth.getSession();
+
+    console.log(data);
+    console.log(error);
+
+    alert("Check browser console");
+  };
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <Navbar />

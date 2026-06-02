@@ -2,14 +2,36 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (
+    e: React.FormEvent
+  ) => {
     e.preventDefault();
 
-    // Temporary login
+    setLoading(true);
+
+    const { error } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+    setLoading(false);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
     router.push("/dashboard");
   };
 
@@ -24,13 +46,20 @@ export default function LoginPage() {
           Login to continue
         </p>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form
+          onSubmit={handleLogin}
+          className="space-y-4"
+        >
           <div>
             <label>Email</label>
 
             <input
               type="email"
               required
+              value={email}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
               className="w-full mt-2 p-3 rounded-xl bg-slate-800 border border-slate-700"
             />
           </div>
@@ -41,6 +70,10 @@ export default function LoginPage() {
             <input
               type="password"
               required
+              value={password}
+              onChange={(e) =>
+                setPassword(e.target.value)
+              }
               className="w-full mt-2 p-3 rounded-xl bg-slate-800 border border-slate-700"
             />
           </div>
@@ -56,9 +89,12 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full bg-cyan-500 text-black p-3 rounded-xl font-semibold hover:opacity-90 transition"
+            disabled={loading}
+            className="w-full bg-cyan-500 text-black p-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50"
           >
-            Login
+            {loading
+              ? "Logging In..."
+              : "Login"}
           </button>
         </form>
 
