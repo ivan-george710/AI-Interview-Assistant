@@ -1,104 +1,346 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
+import Editor from "@monaco-editor/react";
+import { Play, Send, Lightbulb, MessageSquareCode, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function PracticePage() {
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
+  const [language, setLanguage] = useState<"javascript" | "python" | "java" | "cpp">("javascript");
+  const [code, setCode] = useState("");
+  const [customInput, setCustomInput] = useState("");
+  const [output, setOutput] = useState("Code execution output will appear here...");
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [metrics, setMetrics] = useState<{ time: string; memory: string } | null>(null);
+  
+  // Fetch questions from Supabase
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('questions')
+          .select('*')
+          .order('title'); // Or some ordering logic
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          setQuestions(data);
+        }
+      } catch (error) {
+        console.error("Error fetching questions:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchQuestions();
+  }, []);
+
+  const question = questions[currentQuestionIndex];
+
+  // Update code when question or language changes
+  useEffect(() => {
+    if (question) {
+      let fallbackCode = "";
+      if (language === "java") {
+        fallbackCode = `class Solution {\n    public Object ${question.function_name}() {\n        // Your code here\n        return null;\n    }\n}`;
+      } else if (language === "cpp") {
+        fallbackCode = `class Solution {\npublic:\n    auto ${question.function_name}() {\n        // Your code here\n        return 0;\n    }\n};`;
+      }
+      
+      setCode(question.starter_code?.[language] || fallbackCode);
+      setOutput("Code execution output will appear here...");
+      setMetrics(null);
+    }
+  }, [currentQuestionIndex, language, question]);
+
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setLanguage(e.target.value as any);
+  };
+
+  const handleEditorChange = (value: string | undefined) => {
+    if (value !== undefined) {
+      setCode(value);
+    }
+  };
+
+  const navigateQuestion = (direction: 1 | -1) => {
+    const newIndex = currentQuestionIndex + direction;
+    if (newIndex >= 0 && newIndex < questions.length) {
+      setCurrentQuestionIndex(newIndex);
+    }
+  };
+
+  const executeCode = async (type: "run" | "submit") => {
+    if (!question) return;
+
+    setIsExecuting(true);
+    setMetrics(null);
+    setOutput(type === "submit" ? "Evaluating against hidden test cases..." : "Sending to execution engine...");
+    
+    try {
+      const response = await fetch("/api/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          language,
+          code,
+          stdin: customInput,
+          type,
+          questionId: question.id
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setOutput(`Error: ${data.error || 'Failed to execute code'}`);
+        setIsExecuting(false);
+        return;
+      }
+
+      if (type === "submit") {
+        if (data.success) {
+           setOutput(`Accepted!\n\nYour code successfully passed all hidden test cases.\n\nConsole Output:\n${data.output}`);
+        } else {
+           setOutput(`Wrong Answer\n\n${data.output}`);
+        }
+      } else {
+        // For run, just show the exact output
+        setOutput(data.output || "No output.");
+      }
+
+      setMetrics({
+        time: data.metrics?.time?.toString() || "0",
+        memory: data.metrics?.memory?.toString() || "0"
+      });
+
+    } catch (err: any) {
+      setOutput(`Failed to connect to execution server: ${err.message}`);
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen bg-slate-950 text-white overflow-hidden items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 size={48} className="animate-spin text-cyan-500" />
+          <h2 className="text-xl text-slate-300 font-semibold">Loading Practice Environment...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="flex h-screen bg-slate-950 text-white overflow-hidden items-center justify-center">
+        <h2 className="text-xl text-red-400 font-semibold">No questions found in Supabase database.</h2>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
       <Sidebar />
 
-      <main className="flex-1 p-8">
-        <h1 className="text-4xl font-bold">
-          Coding Practice
-        </h1>
+      <main className="flex-1 p-6 flex flex-col overflow-hidden">
+        <header className="mb-6 shrink-0 flex justify-between items-end">
+          <div>
+            <h1 className="text-3xl font-bold">Coding Practice</h1>
+            <p className="text-slate-400 mt-2">Solve coding problems with real test-case validation.</p>
+          </div>
+          
+          <div className="flex gap-2">
+             <button 
+                onClick={() => navigateQuestion(-1)}
+                disabled={currentQuestionIndex === 0}
+                className="flex items-center gap-2 bg-slate-900 border border-slate-800 text-slate-300 px-4 py-2 rounded-xl text-sm hover:bg-slate-800 transition disabled:opacity-50"
+             >
+                <ChevronLeft size={16} /> Prev Question
+             </button>
+             <button 
+                onClick={() => navigateQuestion(1)}
+                disabled={currentQuestionIndex === questions.length - 1}
+                className="flex items-center gap-2 bg-slate-900 border border-slate-800 text-slate-300 px-4 py-2 rounded-xl text-sm hover:bg-slate-800 transition disabled:opacity-50"
+             >
+                Next Question <ChevronRight size={16} />
+             </button>
+          </div>
+        </header>
 
-        <p className="text-slate-400 mt-2">
-          Solve coding problems and get AI-powered feedback.
-        </p>
+        <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+          
+          {/* Left Panel: Question */}
+          <div className="col-span-3 bg-slate-900 rounded-2xl border border-slate-800 flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-slate-800 bg-slate-900/50 shrink-0">
+               <h2 className="text-xl font-bold">{question.title}</h2>
+               <div className="flex flex-wrap gap-2 mt-2">
+                 <span className={`px-2 py-1 rounded-md text-xs font-medium ${question.difficulty === 'Easy' ? 'bg-emerald-500/10 text-emerald-400' : question.difficulty === 'Medium' ? 'bg-yellow-500/10 text-yellow-400' : 'bg-red-500/10 text-red-400'}`}>
+                    {question.difficulty}
+                 </span>
+                 {question.tags?.map((tag: string) => (
+                   <span key={tag} className="px-2 py-1 bg-slate-800 text-slate-300 rounded-md text-xs font-medium">{tag}</span>
+                 ))}
+               </div>
+            </div>
+            
+            <div className="p-6 flex-1 overflow-y-auto">
+              <div 
+                className="text-slate-300 mb-6 leading-relaxed text-sm"
+                dangerouslySetInnerHTML={{ __html: question.description }}
+              />
 
-        <div className="grid grid-cols-12 gap-6 mt-8">
+              {question.examples?.map((ex: any, i: number) => (
+                <div key={i} className="mb-6">
+                  <h3 className="font-semibold mb-3 text-slate-200">Example {i + 1}:</h3>
+                  <div className="bg-slate-950 p-4 rounded-xl font-mono text-sm border border-slate-800 text-slate-300">
+                    <span className="text-slate-500">Input:</span> {ex.input}<br/>
+                    <span className="text-slate-500">Output:</span> {ex.output}<br/>
+                    {ex.explanation && (
+                       <><span className="text-slate-500">Explanation:</span> {ex.explanation}</>
+                    )}
+                  </div>
+                </div>
+              ))}
 
-          {/* Question Panel */}
+              <h3 className="font-semibold mb-3 text-slate-200">Constraints:</h3>
+              <ul className="list-disc list-inside text-slate-400 text-sm space-y-2 font-mono">
+                {question.constraints?.map((c: string, i: number) => (
+                  <li key={i} dangerouslySetInnerHTML={{ __html: c }} />
+                ))}
+              </ul>
+            </div>
+          </div>
 
-          <div className="col-span-4 bg-slate-900 rounded-2xl p-6 border border-slate-800">
-
-            <h2 className="text-2xl font-bold mb-4">
-              Two Sum
-            </h2>
-
-            <p className="text-slate-300">
-              Given an array of integers nums and an integer target,
-              return indices of the two numbers such that they add up
-              to target.
-            </p>
-
-            <div className="mt-6">
-              <h3 className="font-semibold mb-2">
-                Example
-              </h3>
-
-              <div className="bg-slate-800 p-4 rounded-xl">
-                Input: nums = [2,7,11,15]
-                <br />
-                Target = 9
-                <br />
-                Output: [0,1]
+          {/* Right Panel: Editor & Output */}
+          <div className="col-span-9 flex flex-col gap-4 min-h-0">
+            
+            {/* Editor Container */}
+            <div className="bg-slate-900 rounded-2xl border border-slate-800 flex-1 flex flex-col overflow-hidden">
+              <div className="p-3 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center shrink-0">
+                 <div className="flex items-center gap-3">
+                   <select 
+                     value={language}
+                     onChange={handleLanguageChange}
+                     className="bg-slate-950 border border-slate-700 text-sm rounded-lg px-3 py-1.5 outline-none focus:border-cyan-500 text-slate-300 cursor-pointer font-medium"
+                   >
+                     <option value="javascript">JavaScript</option>
+                     <option value="python">Python 3</option>
+                     <option value="java">Java</option>
+                     <option value="cpp">C++</option>
+                   </select>
+                   <span className="text-xs text-slate-500 font-mono hidden sm:inline-block">Monaco Engine</span>
+                 </div>
+                 
+                 <div className="flex gap-2">
+                   <button className="flex items-center gap-2 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-sm hover:bg-slate-800 transition">
+                     <MessageSquareCode size={16} className="text-blue-400" /> <span className="hidden lg:inline">AI Review</span>
+                   </button>
+                   <button className="flex items-center gap-2 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-sm hover:bg-slate-800 transition">
+                     <Lightbulb size={16} className="text-yellow-400" /> <span className="hidden lg:inline">Hint</span>
+                   </button>
+                 </div>
+              </div>
+              
+              <div className="flex-1 relative">
+                 <Editor
+                   height="100%"
+                   language={language === "cpp" ? "cpp" : language}
+                   theme="vs-dark"
+                   value={code}
+                   onChange={handleEditorChange}
+                   loading={<div className="h-full w-full flex items-center justify-center text-slate-500">Loading Editor...</div>}
+                   options={{
+                     minimap: { enabled: false },
+                     fontSize: 14,
+                     fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+                     padding: { top: 16 },
+                     scrollBeyondLastLine: false,
+                     smoothScrolling: true,
+                     cursorBlinking: "smooth",
+                     renderLineHighlight: "all"
+                   }}
+                 />
               </div>
             </div>
 
-          </div>
+            {/* Terminal / Output Container */}
+            <div className="h-52 bg-slate-900 rounded-2xl border border-slate-800 flex flex-col shrink-0 overflow-hidden">
+               <div className="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 shrink-0">
+                  <div className="flex gap-4">
+                     <span className="text-sm font-semibold text-slate-300">Console & Test Cases</span>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => executeCode("run")}
+                      disabled={isExecuting}
+                      className="flex items-center gap-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 px-4 py-1.5 rounded-lg text-sm font-medium transition disabled:opacity-50"
+                    >
+                      <Play size={16} className={isExecuting ? "animate-pulse text-cyan-400" : "text-cyan-400"} /> 
+                      {isExecuting ? "Executing..." : "Run Code"}
+                    </button>
+                    
+                    <button 
+                      onClick={() => executeCode("submit")}
+                      disabled={isExecuting}
+                      className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition bg-cyan-500 hover:bg-cyan-400 text-black disabled:opacity-50`}
+                    >
+                      <Send size={16} /> 
+                      Submit
+                    </button>
+                  </div>
+               </div>
 
-          {/* Editor */}
-
-          <div className="col-span-8 bg-slate-900 rounded-2xl p-6 border border-slate-800">
-
-            <h2 className="text-xl font-bold mb-4">
-              Code Editor
-            </h2>
-
-            <textarea
-              className="w-full h-96 bg-slate-950 border border-slate-700 rounded-xl p-4 font-mono"
-              defaultValue={`function twoSum(nums, target) {
-
-}`}
-            />
-
-            <div className="flex gap-4 mt-6">
-
-              <button className="bg-cyan-500 text-black px-5 py-2 rounded-xl font-semibold">
-                Run Code
-              </button>
-
-              <button className="bg-green-500 text-black px-5 py-2 rounded-xl font-semibold">
-                Submit
-              </button>
-
-              <button className="border border-slate-700 px-5 py-2 rounded-xl">
-                AI Review
-              </button>
-
-              <button className="border border-slate-700 px-5 py-2 rounded-xl">
-                Get Hint
-              </button>
-
+               <div className="flex flex-1 overflow-hidden">
+                 {/* Custom Input */}
+                 <div className="w-1/3 border-r border-slate-800 p-4 flex flex-col bg-slate-900/30">
+                   <label className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider flex justify-between items-center">
+                     Custom Input
+                     <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[10px]">stdin</span>
+                   </label>
+                   <textarea 
+                     value={customInput}
+                     onChange={(e) => setCustomInput(e.target.value)}
+                     className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm font-mono text-slate-300 outline-none focus:border-slate-700 resize-none placeholder:text-slate-700"
+                     placeholder="Enter raw test data to pass via stdin..."
+                   />
+                 </div>
+                 
+                 {/* Output & Metrics */}
+                 <div className="w-2/3 p-4 flex flex-col bg-[#0d1117]">
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Execution Result</label>
+                      
+                      {metrics && (
+                        <div className="flex gap-3 text-xs font-mono">
+                           <span className="bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-md border border-emerald-500/20 flex items-center gap-1.5">
+                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> {metrics.time} ms
+                           </span>
+                           <span className="bg-cyan-500/10 text-cyan-400 px-2.5 py-1 rounded-md border border-cyan-500/20 flex items-center gap-1.5">
+                             <div className="w-1.5 h-1.5 rounded-full bg-cyan-400"></div> {metrics.memory} MB
+                           </span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <pre className={`flex-1 overflow-auto text-sm font-mono p-1 rounded ${output.includes("Accepted") ? "text-emerald-400" : output.includes("Wrong Answer") || output.includes("Error") || output.includes("error:") ? "text-red-400" : "text-slate-300"}`}>
+                      {output}
+                    </pre>
+                 </div>
+               </div>
             </div>
 
           </div>
-
         </div>
-
-        {/* Output */}
-
-        <div className="mt-6 bg-slate-900 rounded-2xl p-6 border border-slate-800">
-
-          <h2 className="text-xl font-bold mb-4">
-            Output
-          </h2>
-
-          <div className="bg-slate-950 rounded-xl p-4 text-green-400">
-            Code execution output will appear here...
-          </div>
-
-        </div>
-
       </main>
     </div>
   );
