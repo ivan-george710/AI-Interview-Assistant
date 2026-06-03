@@ -75,7 +75,7 @@ const initials = userName
 
 return ( <div className="flex min-h-screen bg-slate-950 text-white font-sans selection:bg-cyan-500/30"> <Sidebar />
 
-```
+
   <main className="flex-1 p-8 max-w-7xl mx-auto overflow-y-auto">
     <header className="flex justify-between items-center mb-10 bg-slate-900/50 p-4 rounded-2xl border border-slate-800/50 backdrop-blur-sm">
       <div className="flex items-center gap-4">
