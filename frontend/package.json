@@ -9,10 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-<<<<<<< HEAD
-=======
     "@monaco-editor/react": "^4.7.0",
->>>>>>> origin/Medha
     "@supabase/supabase-js": "^2.106.2",
     "lucide-react": "^1.17.0",
     "next": "16.2.6",
