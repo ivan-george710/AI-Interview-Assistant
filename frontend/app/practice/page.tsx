@@ -17,7 +17,14 @@ export default function PracticePage() {
   const [output, setOutput] = useState("Code execution output will appear here...");
   const [isExecuting, setIsExecuting] = useState(false);
   const [metrics, setMetrics] = useState<{ time: string; memory: string } | null>(null);
+
+  const [hint, setHint] = useState("");
+  const [review, setReview] = useState("");
+  const [isLoadingHint, setIsLoadingHint] = useState(false);
+  const [isLoadingReview, setIsLoadingReview] = useState(false);
   
+  const [showHintModal, setShowHintModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   // Fetch questions from Supabase
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -127,27 +134,74 @@ export default function PracticePage() {
       setIsExecuting(false);
     }
   };
+  const getHint = async () => {
+  if (!question) return;
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen bg-slate-950 text-white overflow-hidden items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 size={48} className="animate-spin text-cyan-500" />
-          <h2 className="text-xl text-slate-300 font-semibold">Loading Practice Environment...</h2>
-        </div>
-      </div>
+  setIsLoadingHint(true);
+
+  try {
+    const response = await fetch(
+      "http://localhost:8000/api/ai/hint",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          questionTitle: question.title,
+          questionDescription: question.description,
+          language,
+        }),
+      }
     );
-  }
 
-  if (questions.length === 0) {
-    return (
-      <div className="flex h-screen bg-slate-950 text-white overflow-hidden items-center justify-center">
-        <h2 className="text-xl text-red-400 font-semibold">No questions found in Supabase database.</h2>
-      </div>
+    const data = await response.json();
+
+    setHint(data.hint);
+    setShowHintModal(true); // OPEN MODAL
+  } catch (error) {
+    console.error(error);
+    setHint("Failed to generate hint.");
+    setShowHintModal(true); // SHOW ERROR
+  } finally {
+    setIsLoadingHint(false);
+  }
+};
+   
+  const reviewCode = async () => {
+  if (!question) return;
+
+  setIsLoadingReview(true);
+
+  try {
+    const response = await fetch(
+      "http://localhost:8000/api/ai/review",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          questionTitle: question.title,
+          questionDescription: question.description,
+          userCode: code,
+          language,
+        }),
+      }
     );
-  }
 
-  return (
+    const data = await response.json();
+
+    setReview(data.review);
+    setShowReviewModal(true); // OPEN MODAL
+  } catch (error) {
+    console.error(error);
+    setReview("Failed to generate review.");
+    setShowReviewModal(true); // SHOW ERROR
+  } finally {
+    setIsLoadingReview(false);
+  }
+};  return (
     <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
       <Sidebar />
 
@@ -241,12 +295,26 @@ export default function PracticePage() {
                  </div>
                  
                  <div className="flex gap-2">
-                   <button className="flex items-center gap-2 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-sm hover:bg-slate-800 transition">
-                     <MessageSquareCode size={16} className="text-blue-400" /> <span className="hidden lg:inline">AI Review</span>
-                   </button>
-                   <button className="flex items-center gap-2 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-sm hover:bg-slate-800 transition">
-                     <Lightbulb size={16} className="text-yellow-400" /> <span className="hidden lg:inline">Hint</span>
-                   </button>
+                    <button
+                      onClick={reviewCode}
+                      disabled={isLoadingReview}
+                      className="flex items-center gap-2 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-sm hover:bg-slate-800 transition"
+                    >
+                      <MessageSquareCode size={16} className="text-blue-400" />
+                      <span className="hidden lg:inline">
+                        {isLoadingReview ? "Reviewing..." : "AI Review"}
+                      </span>
+                    </button>
+                    <button
+                      onClick={getHint}
+                      disabled={isLoadingHint}
+                      className="flex items-center gap-2 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-sm hover:bg-slate-800 transition"
+                    >
+                      <Lightbulb size={16} className="text-yellow-400" />
+                      <span className="hidden lg:inline">
+                        {isLoadingHint ? "Generating..." : "Hint"}
+                      </span>
+                    </button>
                  </div>
               </div>
               
@@ -271,6 +339,10 @@ export default function PracticePage() {
                  />
               </div>
             </div>
+
+          
+
+            
 
             {/* Terminal / Output Container */}
             <div className="h-52 bg-slate-900 rounded-2xl border border-slate-800 flex flex-col shrink-0 overflow-hidden">
@@ -341,6 +413,51 @@ export default function PracticePage() {
 
           </div>
         </div>
+        {showHintModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-[700px] max-w-[90vw]">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-yellow-400">
+                  AI Hint
+                </h2>
+
+                <button
+                  onClick={() => setShowHintModal(false)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="text-slate-200 whitespace-pre-wrap">
+                {hint}
+              </p>
+            </div>
+          </div>
+      )}
+
+      {showReviewModal && (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-[900px] max-w-[95vw] max-h-[80vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-blue-400">
+              AI Review
+            </h2>
+
+            <button
+              onClick={() => setShowReviewModal(false)}
+              className="text-slate-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <pre className="text-slate-200 whitespace-pre-wrap">
+            {review}
+          </pre>
+        </div>
+      </div>
+      )} 
       </main>
     </div>
   );
