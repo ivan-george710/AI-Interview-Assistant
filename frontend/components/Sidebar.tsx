@@ -31,6 +31,22 @@ export default function Sidebar() {
       name: "Settings",
       path: "/settings",
     },
+    {
+  name: "Resume",
+  path: "/resume",
+},
+{
+  name: "Job Readiness",
+  path: "/job-readiness",
+},
+{
+  name: "Company Tracker",
+  path: "/company-tracker",
+},
+{
+  name: "Interview Experiences",
+  path: "/interview-experiences",
+},
   ];
 
   return (

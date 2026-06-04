@@ -17,8 +17,23 @@ import TopicPerformance from "@/components/TopicPerformance";
 export default function Dashboard() {
 const router = useRouter();
 
-const [userName, setUserName] = useState("User");
-const [loading, setLoading] = useState(true);
+const [userName, setUserName] =
+  useState("User");
+
+const [loading, setLoading] =
+  useState(true);
+
+const [questionsSolved, setQuestionsSolved] =
+  useState(0);
+
+const [totalXP, setTotalXP] =
+  useState(0);
+
+const [currentStreak, setCurrentStreak] =
+  useState(0);
+
+const [globalRank, setGlobalRank] =
+  useState(0);
 
 const currentHour = new Date().getHours();
 
