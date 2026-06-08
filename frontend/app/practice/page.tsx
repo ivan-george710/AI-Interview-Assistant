@@ -48,10 +48,9 @@ export default function PracticePage() {
 
     fetchQuestions();
   }, []);
+  
 
   const question = questions[currentQuestionIndex];
-
-  // Update code when question or language changes
   useEffect(() => {
     if (question) {
       let fallbackCode = "";
@@ -66,6 +65,24 @@ export default function PracticePage() {
       setMetrics(null);
     }
   }, [currentQuestionIndex, language, question]);
+if (isLoading) {
+  return (
+    <div className="flex h-screen items-center justify-center bg-slate-950 text-white">
+      <Loader2 className="animate-spin mr-2" />
+      Loading questions...
+    </div>
+  );
+}
+
+if (!question) {
+  return (
+    <div className="flex h-screen items-center justify-center bg-slate-950 text-white">
+      No questions found.
+    </div>
+  );
+}
+  // Update code when question or language changes
+  
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setLanguage(e.target.value as any);
@@ -296,7 +313,9 @@ export default function PracticePage() {
                  
                  <div className="flex gap-2">
                     <button
-                      onClick={reviewCode}
+  onClick={async () => {
+    await reviewCode();
+  }}
                       disabled={isLoadingReview}
                       className="flex items-center gap-2 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-sm hover:bg-slate-800 transition"
                     >
@@ -306,7 +325,9 @@ export default function PracticePage() {
                       </span>
                     </button>
                     <button
-                      onClick={getHint}
+  onClick={async () => {
+    await getHint();
+  }}
                       disabled={isLoadingHint}
                       className="flex items-center gap-2 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-sm hover:bg-slate-800 transition"
                     >
