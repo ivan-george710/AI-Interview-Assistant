@@ -1,6 +1,11 @@
+"use client";
+
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Sidebar() {
+  const { user } = useAuth();
+
   const menuItems = [
     {
       name: "Dashboard",
@@ -36,7 +41,7 @@ export default function Sidebar() {
     },
     {
       name: "Settings",
-      path: "/settings",
+      path: "/Settings",
     },
   ];
 
@@ -45,6 +50,7 @@ export default function Sidebar() {
       <h1 className="text-2xl font-bold text-cyan-400 mb-10">
         AI Interview
       </h1>
+
 
       <nav className="space-y-4">
         {menuItems.map((item) => (
@@ -56,6 +62,13 @@ export default function Sidebar() {
             {item.name}
           </Link>
         ))}
+
+        <Link
+          href="/admin"
+          className="block p-3 rounded-xl bg-cyan-500 text-black font-semibold"
+        >
+          Admin
+        </Link>
       </nav>
     </aside>
   );
