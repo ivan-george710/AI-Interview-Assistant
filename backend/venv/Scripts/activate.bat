@@ -8,7 +8,15 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
+<<<<<<< HEAD
 set "VIRTUAL_ENV=C:\Users\ivang\AI-Interview-Assistant\backend\venv"
+=======
+<<<<<<< HEAD
+set VIRTUAL_ENV=C:\gnxproject\AI-Interview-Assistant\backend\venv
+=======
+set VIRTUAL_ENV=C:\Users\Nayonika Nair\AI-Interview-Assistant\backend\venv
+>>>>>>> origin/develop
+>>>>>>> origin/Abhinav
 
 if not defined PROMPT set PROMPT=$P$G
 

@@ -20,12 +20,24 @@ export default function Sidebar() {
       path: "/mock-interview",
     },
     {
+      name: "Contests",
+      path: "/contests",
+    },
+    {
+      name: "Assessments",
+      path: "/assessments",
+    },
+    {
       name: "Analytics",
       path: "/analytics",
     },
     {
       name: "Leaderboard",
       path: "/leaderboard",
+    },
+    {
+      name: "Profile",
+      path: "/profile",
     },
     {
       name: "Settings",
