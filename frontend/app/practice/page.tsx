@@ -36,6 +36,7 @@ export default function PracticePage() {
         
         if (error) throw error;
         
+        console.log("Questions fetched:", data);
         if (data && data.length > 0) {
           setQuestions(data);
         }
@@ -51,6 +52,9 @@ export default function PracticePage() {
   
 
   const question = questions[currentQuestionIndex];
+
+
+  // Update code when question or language changes
   useEffect(() => {
     if (question) {
       let fallbackCode = "";
@@ -65,24 +69,23 @@ export default function PracticePage() {
       setMetrics(null);
     }
   }, [currentQuestionIndex, language, question]);
-if (isLoading) {
-  return (
-    <div className="flex h-screen items-center justify-center bg-slate-950 text-white">
-      <Loader2 className="animate-spin mr-2" />
-      Loading questions...
-    </div>
-  );
-}
 
-if (!question) {
-  return (
-    <div className="flex h-screen items-center justify-center bg-slate-950 text-white">
-      No questions found.
-    </div>
-  );
-}
-  // Update code when question or language changes
-  
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-950 text-white">
+        <Loader2 className="animate-spin mr-2" />
+        Loading questions...
+      </div>
+    );
+  }
+
+  if (!question) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-950 text-white">
+        No questions found.
+      </div>
+    );
+  }
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setLanguage(e.target.value as any);
@@ -218,7 +221,8 @@ if (!question) {
   } finally {
     setIsLoadingReview(false);
   }
-};  return (
+};  
+return (
     <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
       <Sidebar />
 

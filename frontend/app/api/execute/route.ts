@@ -21,11 +21,37 @@ function inferCppType(val: any): string {
 }
 
 function toCppLiteral(val: any, overrideType?: string): string {
-  if (typeof val === 'string') {
-     if (overrideType === 'char' || overrideType === 'std::vector<char>' || overrideType === 'char[]') return `'${val}'`;
-     return `"${val}"`;
+  if (typeof val === "boolean") {
+    return val ? "true" : "false";
   }
-  if (Array.isArray(val)) return `{${val.map(v => toCppLiteral(v, overrideType?.includes('char') ? 'char' : undefined)).join(', ')}}`;
+
+  if (typeof val === "number") {
+    return val.toString();
+  }
+
+  if (typeof val === "string") {
+    if (
+      overrideType === "char" ||
+      overrideType === "std::vector<char>" ||
+      overrideType === "char[]"
+    ) {
+      return `'${val}'`;
+    }
+
+    return `"${val}"`;
+  }
+
+  if (Array.isArray(val)) {
+    return `{${val
+      .map(v =>
+        toCppLiteral(
+          v,
+          overrideType?.includes("char") ? "char" : undefined
+        )
+      )
+      .join(", ")}}`;
+  }
+
   return String(val);
 }
 
@@ -207,12 +233,12 @@ except Exception as e:
           if (sig?.returnType === 'void') {
              finalCode += `  sol.${question.function_name}(${argNames});\n`;
              const expType = sig?.paramTypes[0] || (Array.isArray(test.expectedOutput) ? inferCppType(test.expectedOutput) : '');
-             finalCode += `  auto expected = ${expType}${toCppLiteral(test.expectedOutput, expType)};\n`;
+             finalCode += `  auto expected = ${toCppLiteral(test.expectedOutput, expType)};\n`;
              finalCode += `  if (arg${i}_0 != expected) {\n    std::cout << "TEST_FAILED\\n";\n    return 1;\n  }\n  }\n`;
           } else {
              finalCode += `  auto res = sol.${question.function_name}(${argNames});\n`;
              const expType = sig?.returnType || (Array.isArray(test.expectedOutput) ? inferCppType(test.expectedOutput) : '');
-             finalCode += `  auto expected = ${expType}${toCppLiteral(test.expectedOutput, expType)};\n`;
+             finalCode += `  auto expected = ${toCppLiteral(test.expectedOutput, expType)};\n`;
              finalCode += `  if (res != expected) {\n    std::cout << "TEST_FAILED\\n";\n    return 1;\n  }\n  }\n`;
           }
         });
