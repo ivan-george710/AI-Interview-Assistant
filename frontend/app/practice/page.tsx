@@ -3,11 +3,34 @@
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import Editor from "@monaco-editor/react";
-import { Play, Send, Lightbulb, MessageSquareCode, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import {
+  Play,
+  Send,
+  Lightbulb,
+  MessageSquareCode,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Heart
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function PracticePage() {
   const [questions, setQuestions] = useState<any[]>([]);
+  const [search, setSearch] =
+  useState("");
+
+const [difficultyFilter,
+setDifficultyFilter] =
+  useState("All");
+
+const [companyFilter,
+setCompanyFilter] =
+  useState("All");
+  const [topicFilter,
+setTopicFilter] =
+  useState("All");
+
   const [isLoading, setIsLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
@@ -25,6 +48,10 @@ export default function PracticePage() {
   
   const [showHintModal, setShowHintModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [favorites,
+setFavorites] =
+  useState<string[]>([]);
+
   // Fetch questions from Supabase
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -52,6 +79,43 @@ export default function PracticePage() {
   
 
   const question = questions[currentQuestionIndex];
+  const filteredQuestions =
+  questions.filter(
+    (question) => {
+
+      const matchesSearch =
+        question.title
+          .toLowerCase()
+          .includes(
+            search.toLowerCase()
+          );
+
+      const matchesDifficulty =
+        difficultyFilter ===
+          "All" ||
+        question.difficulty ===
+          difficultyFilter;
+
+      const matchesCompany =
+        companyFilter ===
+          "All" ||
+        question.company ===
+          companyFilter;
+          const matchesTopic =
+  topicFilter ===
+    "All" ||
+  question.tags?.includes(
+    topicFilter
+  );
+
+      return (
+  matchesSearch &&
+  matchesDifficulty &&
+  matchesCompany &&
+  matchesTopic
+);
+    }
+  );
 
 
   // Update code when question or language changes
@@ -191,6 +255,68 @@ export default function PracticePage() {
   const reviewCode = async () => {
   if (!question) return;
 
+  const toggleFavorite = async () => {
+  if (!question) return;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const isFavorite =
+    favorites.includes(question.id);
+
+  if (isFavorite) {
+    const { error } =
+      await supabase
+        .from(
+          "favorite_questions"
+        )
+        .delete()
+        .eq(
+          "user_id",
+          user.id
+        )
+        .eq(
+          "question_id",
+          question.id
+        );
+
+    if (error) {
+      console.log(error);
+      return;
+    }
+
+    setFavorites(
+      favorites.filter(
+        (id) => id !== question.id
+      )
+    );
+  } else {
+    const { error } =
+      await supabase
+        .from(
+          "favorite_questions"
+        )
+        .insert({
+          user_id: user.id,
+          question_id:
+            question.id,
+        });
+
+    if (error) {
+      console.log(error);
+      return;
+    }
+
+    setFavorites([
+      ...favorites,
+      question.id,
+    ]);
+  }
+};
+
   setIsLoadingReview(true);
 
   try {
@@ -228,6 +354,112 @@ return (
 
       <main className="flex-1 p-6 flex flex-col overflow-hidden">
         <header className="mb-6 shrink-0 flex justify-between items-end">
+        <div className="flex flex-wrap gap-3 mt-4">
+
+  <input
+    type="text"
+    placeholder="Search Questions..."
+    value={search}
+    onChange={(e) =>
+      setSearch(
+        e.target.value
+      )
+    }
+    className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2"
+  />
+
+  <select
+    value={
+      difficultyFilter
+    }
+    onChange={(e) =>
+      setDifficultyFilter(
+        e.target.value
+      )
+    }
+    className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2"
+  >
+    <option>
+      All
+    </option>
+    <option>
+      Easy
+    </option>
+    <option>
+      Medium
+    </option>
+    <option>
+      Hard
+    </option>
+  </select>
+
+  <select
+    value={companyFilter}
+    onChange={(e) =>
+      setCompanyFilter(
+        e.target.value
+      )
+    }
+    className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2"
+  >
+    <option>
+      All
+    </option>
+
+    <option>
+      Google
+    </option>
+
+    <option>
+      Amazon
+    </option>
+
+    <option>
+      Microsoft
+    </option>
+
+    <option>
+      Meta
+    </option>
+  </select>
+
+  <button
+    onClick={() => {
+
+      if (
+        filteredQuestions.length ===
+        0
+      )
+        return;
+
+      const randomIndex =
+        Math.floor(
+          Math.random() *
+            filteredQuestions.length
+        );
+
+      const randomQuestion =
+        filteredQuestions[
+          randomIndex
+        ];
+
+      const index =
+        questions.findIndex(
+          (q) =>
+            q.id ===
+            randomQuestion.id
+        );
+
+      setCurrentQuestionIndex(
+        index
+      );
+    }}
+    className="bg-cyan-500 text-black px-4 py-2 rounded-xl font-semibold"
+  >
+    Random Question
+  </button>
+
+</div>
           <div>
             <h1 className="text-3xl font-bold">Coding Practice</h1>
             <p className="text-slate-400 mt-2">Solve coding problems with real test-case validation.</p>
@@ -256,7 +488,29 @@ return (
           {/* Left Panel: Question */}
           <div className="col-span-3 bg-slate-900 rounded-2xl border border-slate-800 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-800 bg-slate-900/50 shrink-0">
-               <h2 className="text-xl font-bold">{question.title}</h2>
+            <div className="flex justify-between items-center">
+
+  <h2 className="text-xl font-bold">
+    {question.title}
+  </h2>
+
+  <button
+    onClick={
+      () => {}
+    }
+  >
+    <Heart
+      className={`w-5 h-5 ${
+        favorites.includes(
+          question.id
+        )
+          ? "fill-red-500 text-red-500"
+          : "text-slate-400"
+      }`}
+    />
+  </button>
+
+</div>
                <div className="flex flex-wrap gap-2 mt-2">
                  <span className={`px-2 py-1 rounded-md text-xs font-medium ${question.difficulty === 'Easy' ? 'bg-emerald-500/10 text-emerald-400' : question.difficulty === 'Medium' ? 'bg-yellow-500/10 text-yellow-400' : 'bg-red-500/10 text-red-400'}`}>
                     {question.difficulty}
