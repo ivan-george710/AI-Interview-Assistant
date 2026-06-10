@@ -15,8 +15,10 @@ import {
   Bookmark
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 
 export default function PracticePage() {
+  const { user } = useAuth();
   const [questions, setQuestions] = useState<any[]>([]);
   const [search, setSearch] =
   useState("");
@@ -34,6 +36,10 @@ setTopicFilter] =
 
   const [isLoading, setIsLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [startedAt, setStartedAt] =
+    useState(
+      new Date().toISOString()
+    );
 
   const [language, setLanguage] = useState<"javascript" | "python" | "java" | "cpp">("javascript");
   const [code, setCode] = useState("");
@@ -205,12 +211,28 @@ setFavorites] =
     }
   };
 
-  const navigateQuestion = (direction: 1 | -1) => {
-    const newIndex = currentQuestionIndex + direction;
-    if (newIndex >= 0 && newIndex < questions.length) {
-      setCurrentQuestionIndex(newIndex);
+  const navigateQuestion = (
+    direction: 1 | -1
+  ) => {
+    const newIndex =
+      currentQuestionIndex +
+      direction;
+
+    if (
+      newIndex >= 0 &&
+      newIndex < questions.length
+    ) {
+      setStartedAt(
+        new Date().toISOString()
+      );
+
+      setCurrentQuestionIndex(
+        newIndex
+      );
     }
   };
+
+  
 
   const executeCode = async (type: "run" | "submit") => {
     if (!question) return;
@@ -240,15 +262,33 @@ setFavorites] =
         return;
       }
 
-      if (type === "submit") {
-        if (data.success) {
-           setOutput(`Accepted!\n\nYour code successfully passed all hidden test cases.\n\nConsole Output:\n${data.output}`);
-        } else {
-           setOutput(`Wrong Answer\n\n${data.output}`);
+      if (data.success) {
+        setOutput(
+          `Accepted!\n\nYour code successfully passed all hidden test cases.\n\nConsole Output:\n${data.output}`
+        );
+
+        try {
+          await fetch(
+            "http://localhost:8000/submit",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                "application/json",
+              },
+              body: JSON.stringify({
+                user_id: user?.id,
+                problem_id: question.id,
+                started_at: startedAt,
+              }),
+            }
+          );
+        } catch (err) {
+          console.error(
+            "Failed to save submission",
+            err
+          );
         }
-      } else {
-        // For run, just show the exact output
-        setOutput(data.output || "No output.");
       }
 
       setMetrics({
