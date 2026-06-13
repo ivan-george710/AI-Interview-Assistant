@@ -11,35 +11,25 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Heart, 
-  Bookmark
+  Heart,
+  Bookmark,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { submitProblem } from "@/lib/api";
+import Toast from "@/components/Toast";
 
 export default function PracticePage() {
   const { user } = useAuth();
   const [questions, setQuestions] = useState<any[]>([]);
-  const [search, setSearch] =
-  useState("");
-
-const [difficultyFilter,
-setDifficultyFilter] =
-  useState("All");
-
-const [companyFilter,
-setCompanyFilter] =
-  useState("All");
-  const [topicFilter,
-setTopicFilter] =
-  useState("All");
+  const [search, setSearch] = useState("");
+  const [difficultyFilter, setDifficultyFilter] = useState("All");
+  const [companyFilter, setCompanyFilter] = useState("All");
+  const [topicFilter, setTopicFilter] = useState("All");
 
   const [isLoading, setIsLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [startedAt, setStartedAt] =
-    useState(
-      new Date().toISOString()
-    );
+  const [startedAt, setStartedAt] = useState(new Date().toISOString());
 
   const [language, setLanguage] = useState<"javascript" | "python" | "java" | "cpp">("javascript");
   const [code, setCode] = useState("");
@@ -52,15 +42,17 @@ setTopicFilter] =
   const [review, setReview] = useState("");
   const [isLoadingHint, setIsLoadingHint] = useState(false);
   const [isLoadingReview, setIsLoadingReview] = useState(false);
-  
+
   const [showHintModal, setShowHintModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [favorites,
-setFavorites] =
-  useState<string[]>([]);
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
 
-  const [bookmarks, setBookmarks] =
-  useState<string[]>([]);
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: "success" | "error" }>({
+    show: false,
+    message: "",
+    type: "success",
+  });
 
   // Fetch questions from Supabase
   useEffect(() => {
@@ -234,206 +226,303 @@ setFavorites] =
 
   
 
-  const executeCode = async (type: "run" | "submit") => {
-    if (!question) return;
+  const executeCode = async (
+    type: "run" | "submit"
+  ) => {
+    if (!question || !user) return;
 
     setIsExecuting(true);
     setMetrics(null);
-    setOutput(type === "submit" ? "Evaluating against hidden test cases..." : "Sending to execution engine...");
-    
-    try {
-      const response = await fetch("/api/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          language,
-          code,
-          stdin: customInput,
-          type,
-          questionId: question.id
-        })
-      });
+    setOutput(
+      type === "submit"
+        ? "Submitting solution..."
+        : "Sending to execution engine..."
+    );
 
-      const data = await response.json();
-      
+    try {
+      const response = await fetch(
+        "/api/execute",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            language,
+            code,
+            stdin: customInput,
+            type,
+            questionId: question.id,
+          }),
+        }
+      );
+
+      const data =
+        await response.json();
+
       if (!response.ok) {
-        setOutput(`Error: ${data.error || 'Failed to execute code'}`);
+        setOutput(
+          `Error: ${
+            data.error ||
+            "Failed to execute code"
+          }`
+        );
         setIsExecuting(false);
         return;
       }
 
       if (data.success) {
+        // Update output
         setOutput(
-          `Accepted!\n\nYour code successfully passed all hidden test cases.\n\nConsole Output:\n${data.output}`
+          `Accepted!\n\nYour code successfully passed all test cases.\n\nConsole Output:\n${
+            data.output || ""
+          }`
         );
 
-        try {
-          await fetch(
-            "http://localhost:8000/submit",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                "application/json",
-              },
-              body: JSON.stringify({
-                user_id: user?.id,
-                problem_id: question.id,
-                started_at: startedAt,
-              }),
+        // If submitting, call backend submission endpoint
+        if (
+          type === "submit"
+        ) {
+          try {
+            const submissionResult =
+              await submitProblem(
+                user.id,
+                question.id
+              );
+
+            setToast({
+              show: true,
+              message: `Congratulations! You earned ${submissionResult.xpEarned} XP! 🎉`,
+              type: "success",
+            });
+
+            // Log badges if any
+            if (
+              submissionResult
+                .badgesUnlocked &&
+              submissionResult
+                .badgesUnlocked
+                .length > 0
+            ) {
+              setToast({
+                show: true,
+                message: `Badges unlocked: ${submissionResult.badgesUnlocked.join(
+                  ", "
+                )}`,
+                type: "success",
+              });
             }
-          );
-        } catch (err) {
-          console.error(
-            "Failed to save submission",
-            err
-          );
+
+            // Refresh user profile
+            window.location.reload();
+          } catch (err) {
+            console.error(
+              "Error submitting to backend:",
+              err
+            );
+
+            setToast({
+              show: true,
+              message:
+                "Solution accepted but failed to record submission. Please refresh.",
+              type: "error",
+            });
+          }
         }
+      } else {
+        setOutput(
+          `Wrong Answer\n\nYour solution did not pass all test cases.\n${
+            data.output || ""
+          }`
+        );
       }
 
       setMetrics({
-        time: data.metrics?.time?.toString() || "0",
-        memory: data.metrics?.memory?.toString() || "0"
+        time:
+          data.metrics?.time
+            ?.toString() || "0",
+        memory:
+          data.metrics?.memory
+            ?.toString() || "0",
       });
-
     } catch (err: any) {
-      setOutput(`Failed to connect to execution server: ${err.message}`);
+      setOutput(
+        `Failed to connect to execution server: ${
+          err.message
+        }`
+      );
+      setToast({
+        show: true,
+        message:
+          "Execution error. Please try again.",
+        type: "error",
+      });
     } finally {
       setIsExecuting(false);
+
+      // Clear toast after 3 seconds
+      setTimeout(() => {
+        setToast({
+          show: false,
+          message: "",
+          type: "success",
+        });
+      }, 3000);
     }
   };
   const getHint = async () => {
-  if (!question) return;
+    if (!question) return;
 
-  setIsLoadingHint(true);
+    setIsLoadingHint(true);
 
-  try {
-    const response = await fetch(
-      "http://localhost:8000/api/ai/hint",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          questionTitle: question.title,
-          questionDescription: question.description,
-          language,
-        }),
-      }
-    );
+    try {
+      const response = await fetch(
+        "http://localhost:8000/api/ai/hint",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            questionTitle:
+              question.title,
+            questionDescription:
+              question.description,
+            language,
+          }),
+        }
+      );
 
-    const data = await response.json();
+      const data =
+        await response.json();
 
-    setHint(data.hint);
-    setShowHintModal(true); // OPEN MODAL
-  } catch (error) {
-    console.error(error);
-    setHint("Failed to generate hint.");
-    setShowHintModal(true); // SHOW ERROR
-  } finally {
-    setIsLoadingHint(false);
-  }
-};
-   
+      setHint(data.hint);
+      setShowHintModal(true);
+    } catch (error) {
+      console.error(error);
+      setHint(
+        "Failed to generate hint."
+      );
+      setShowHintModal(true);
+    } finally {
+      setIsLoadingHint(false);
+    }
+  };
+
   const reviewCode = async () => {
-  if (!question) return;
+    if (!question) return;
+
+    setIsLoadingReview(true);
+
+    try {
+      const response = await fetch(
+        "http://localhost:8000/api/ai/review",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            questionTitle:
+              question.title,
+            questionDescription:
+              question.description,
+            userCode: code,
+            language,
+          }),
+        }
+      );
+
+      const data =
+        await response.json();
+
+      setReview(data.review);
+      setShowReviewModal(true);
+    } catch (error) {
+      console.error(error);
+      setReview(
+        "Failed to generate review."
+      );
+      setShowReviewModal(true);
+    } finally {
+      setIsLoadingReview(false);
+    }
+  };
 
   const toggleFavorite = async () => {
-  if (!question) return;
+    if (!question || !user) return;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const isFavorite =
+      favorites.includes(question.id);
 
-  if (!user) return;
+    if (isFavorite) {
+      const { error } =
+        await supabase
+          .from(
+            "favorite_questions"
+          )
+          .delete()
+          .eq("user_id", user.id)
+          .eq(
+            "question_id",
+            question.id
+          );
 
-  const isFavorite =
-    favorites.includes(question.id);
-
-  if (isFavorite) {
-    const { error } =
-      await supabase
-        .from(
-          "favorite_questions"
-        )
-        .delete()
-        .eq(
-          "user_id",
-          user.id
-        )
-        .eq(
-          "question_id",
-          question.id
-        );
-
-    if (error) {
-      console.log(error);
-      return;
-    }
-
-    setFavorites(
-      favorites.filter(
-        (id) => id !== question.id
-      )
-    );
-  } else {
-    const { error } =
-      await supabase
-        .from(
-          "favorite_questions"
-        )
-        .insert({
-          user_id: user.id,
-          question_id:
-            question.id,
-        });
-
-    if (error) {
-      console.log(error);
-      return;
-    }
-
-    setFavorites([
-      ...favorites,
-      question.id,
-    ]);
-  }
-};
-
-  setIsLoadingReview(true);
-
-  try {
-    const response = await fetch(
-      "http://localhost:8000/api/ai/review",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          questionTitle: question.title,
-          questionDescription: question.description,
-          userCode: code,
-          language,
-        }),
+      if (error) {
+        console.log(error);
+        return;
       }
-    );
 
-    const data = await response.json();
+      setFavorites(
+        favorites.filter(
+          (id) =>
+            id !== question.id
+        )
+      );
+    } else {
+      const { error } =
+        await supabase
+          .from(
+            "favorite_questions"
+          )
+          .insert({
+            user_id: user.id,
+            question_id:
+              question.id,
+          });
 
-    setReview(data.review);
-    setShowReviewModal(true); // OPEN MODAL
-  } catch (error) {
-    console.error(error);
-    setReview("Failed to generate review.");
-    setShowReviewModal(true); // SHOW ERROR
-  } finally {
-    setIsLoadingReview(false);
-  }
-};  
-return (
+      if (error) {
+        console.log(error);
+        return;
+      }
+
+      setFavorites([
+        ...favorites,
+        question.id,
+      ]);
+    }
+  };
+
+  return (
     <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
+      {toast.show && (
+        <div className="fixed top-4 right-4 z-50">
+          <div
+            className={`px-4 py-3 rounded-lg font-semibold ${
+              toast.type ===
+              "success"
+                ? "bg-emerald-500 text-white"
+                : "bg-red-500 text-white"
+            }`}
+          >
+            {toast.message}
+          </div>
+        </div>
+      )}
+
       <Sidebar />
 
       <main className="flex-1 p-6 flex flex-col overflow-hidden">

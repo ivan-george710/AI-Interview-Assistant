@@ -65,6 +65,10 @@ export default function Sidebar() {
       path: "/leaderboard",
     },
     {
+      name: "Badges",
+      path: "/badges",
+    },
+    {
       name: "Profile",
       path: "/profile",
     },
