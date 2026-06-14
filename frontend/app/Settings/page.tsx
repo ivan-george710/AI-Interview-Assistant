@@ -124,7 +124,10 @@ Loading... </div>
 );
 }
 
-return ( <main className="min-h-screen bg-slate-950 text-white"> <div className="max-w-4xl mx-auto px-8 py-12"> <h1 className="text-4xl font-bold mb-2">
+return ( 
+  
+<main className="min-h-screen bg-slate-950 text-white"> <div className="max-w-4xl mx-auto px-8 py-12"> <h1 className="text-4xl font-bold mb-2">
+
 Settings </h1>
 
 
@@ -134,6 +137,26 @@ Settings </h1>
 
     <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8">
       <div className="flex items-center gap-6 mb-8">
+        <button
+          onClick={() => router.back()}
+          className="
+            h-10
+            w-10
+            flex
+            items-center
+            justify-center
+            rounded-xl
+            bg-slate-900
+            border
+            border-slate-800
+            text-slate-400
+            hover:text-cyan-400
+            hover:border-cyan-500/30
+            transition-all
+          "
+        >
+          ←
+        </button>
         <div className="w-24 h-24 rounded-full bg-cyan-500 flex items-center justify-center text-3xl font-bold">
           {fullName
             ? fullName
