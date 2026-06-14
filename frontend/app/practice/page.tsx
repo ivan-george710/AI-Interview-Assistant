@@ -263,33 +263,39 @@ setFavorites] =
       }
 
       if (data.success) {
-        setOutput(
-          `Accepted!\n\nYour code successfully passed all hidden test cases.\n\nConsole Output:\n${data.output}`
-        );
 
-        try {
-          await fetch(
-            "http://localhost:8000/submit",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                "application/json",
-              },
-              body: JSON.stringify({
-                user_id: user?.id,
-                problem_id: question.id,
-                started_at: startedAt,
-              }),
-            }
-          );
-        } catch (err) {
-          console.error(
-            "Failed to save submission",
-            err
-          );
-        }
+  setOutput(
+    `Accepted!\n\nYour code successfully passed all hidden test cases.\n\nConsole Output:\n${data.output}`
+  );
+
+  try {
+
+    await fetch(
+      "http://localhost:8000/submit",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+          "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user?.id,
+          problem_id: question.id,
+          
+        }),
       }
+    );
+
+
+  } catch (err) {
+
+    console.error(
+      "Failed to save submission",
+      err
+    );
+
+  }
+}
 
       setMetrics({
         time: data.metrics?.time?.toString() || "0",
@@ -336,7 +342,49 @@ setFavorites] =
   }
 };
    
-  const reviewCode = async () => {
+const toggleFavorite = async () => {
+  if (!question) return;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const isFavorite =
+    favorites.includes(question.id);
+
+  if (isFavorite) {
+
+    await supabase
+      .from("favorite_questions")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("question_id", question.id);
+
+    setFavorites(
+      favorites.filter(
+        (id) => id !== question.id
+      )
+    );
+
+  } else {
+
+    await supabase
+      .from("favorite_questions")
+      .insert({
+        user_id: user.id,
+        question_id: question.id,
+      });
+
+    setFavorites([
+      ...favorites,
+      question.id,
+    ]);
+  }
+};
+  
+const reviewCode = async () => {
   if (!question) return;
 
   const toggleFavorite = async () => {
@@ -579,10 +627,8 @@ return (
   </h2>
 
   <button
-    onClick={
-      () => {}
-    }
-  >
+  onClick={toggleFavorite}
+>
     <Heart
       className={`w-5 h-5 ${
         favorites.includes(

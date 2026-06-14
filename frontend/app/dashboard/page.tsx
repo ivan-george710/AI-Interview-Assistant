@@ -39,6 +39,11 @@ const [currentStreak, setCurrentStreak] =
 
 const [globalRank, setGlobalRank] =
   useState(0);
+  const [
+  assessmentsCompleted,
+  setAssessmentsCompleted,
+] =
+  useState(0);
 
   const currentHour = new Date().getHours();
 
@@ -50,29 +55,138 @@ const [globalRank, setGlobalRank] =
       : "Good Evening";
 
   useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  const getUser = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+    if (!user) {
+      router.push("/login");
+      return;
+    }
 
-      setUserName(
-        user.user_metadata?.full_name ||
-          user.email ||
-          "User"
-      );
+    setUserName(
+      user.user_metadata?.full_name ||
+        user.email ||
+        "User"
+    );
 
-      setLoading(false);
-    };
+    await loadDashboardStats(
+      user.id
+    );
 
-    getUser();
-  }, [router]);
+    setLoading(false);
+  };
 
-  const handleLogout = async () => {
+  getUser();
+}, [router]);
+const loadDashboardStats = async (
+  userId: string
+) => {
+
+  const {
+    data: submissions,
+  } = await supabase
+    .from("submissions")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (submissions) {
+
+    const solved =
+      submissions.filter(
+        (s) =>
+          s.status ===
+          "Accepted"
+      ).length;
+
+    
+
+    setQuestionsSolved(
+      solved
+    );
+
+    
+    const {
+  data: attempts,
+} = await supabase
+  .from(
+    "assessment_attempts"
+  )
+  .select("id")
+  .eq(
+    "user_id",
+    userId
+  )
+  .not(
+    "completed_at",
+    "is",
+    null
+  );
+
+setAssessmentsCompleted(
+  attempts?.length || 0
+);
+  }
+
+  const {
+  data: profile,
+} = await supabase
+  .from("profiles")
+  .select(
+    "current_streak,xp"
+  )
+  .eq(
+    "id",
+    userId
+  )
+  .single();
+
+if (profile) {
+
+  setCurrentStreak(
+    profile.current_streak || 0
+  );
+
+  setTotalXP(
+    profile.xp || 0
+  );
+}
+
+if (profile) {
+  setCurrentStreak(
+    profile.current_streak ||
+      0
+  );
+}
+
+  const {
+  data: rankedProfiles,
+} = await supabase
+  .from("profiles")
+  .select("id,xp")
+  .order(
+    "xp",
+    {
+      ascending: false,
+    }
+  );
+
+if (
+  rankedProfiles
+) {
+  const rank =
+    rankedProfiles.findIndex(
+      (p) =>
+        p.id ===
+        userId
+    ) + 1;
+
+  setGlobalRank(rank);
+}
+  
+};
+const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
@@ -143,11 +257,31 @@ const [globalRank, setGlobalRank] =
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard title="Questions Solved" value="143" />
-        <StatCard title="Current Streak" value="15 Days" />
-        <StatCard title="Global Rank" value="#52" />
-        <StatCard title="Total XP" value="12,450" />
-      </div>
+  <StatCard
+  title="Questions Solved"
+  value={questionsSolved.toString()}
+/>
+
+<StatCard
+  title="Current Streak"
+  value={currentStreak.toString()}
+/>
+
+<StatCard
+  title="Assessments Completed"
+  value={assessmentsCompleted.toString()}
+/>
+
+<StatCard
+  title="Global Rank"
+  value={`#${globalRank}`}
+/>
+
+<StatCard
+  title="Total XP"
+  value={totalXP.toString()}
+/>
+</div>
 
       {/* Weekly Contest */}
       <div className="mb-8">

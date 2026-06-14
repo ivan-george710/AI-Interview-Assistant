@@ -57,6 +57,10 @@ export default function Sidebar() {
       path: "/assessments",
     },
     {
+  name: "Assessment History",
+  path: "/assessment-history",
+    },
+    {
       name: "Analytics",
       path: "/analytics",
     },
@@ -64,6 +68,10 @@ export default function Sidebar() {
       name: "Leaderboard",
       path: "/leaderboard",
     },
+    {
+  name: "Achievements",
+  path: "/achievements",
+},
     {
       name: "Profile",
       path: "/profile",
