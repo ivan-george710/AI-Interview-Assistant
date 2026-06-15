@@ -1,29 +1,15 @@
 "use client";
 
+import Link from "next/link";
 
 import Hero from "@/components/Hero";
 import FeatureCard from "@/components/FeatureCard";
 import ProgressChart from "@/components/ProgressChart";
-import { supabase } from "@/lib/supabase";
 
 export default function Home() {
-const testSupabase = async () => {
-const { data, error } =
-await supabase.auth.getSession();
+return ( <main className="min-h-screen bg-slate-950 text-white overflow-x-hidden">
+{/* Hero */} <Hero />
 
-console.log(data);
-console.log(error);
-
-alert("Check browser console");
-
-
-};
-
-return ( <main className="min-h-screen bg-slate-950 text-white overflow-x-hidden"> 
-
-
-  {/* Hero */}
-  <Hero />
 
   {/* Stats */}
   <section className="max-w-6xl mx-auto px-8 py-16">
@@ -42,7 +28,7 @@ return ( <main className="min-h-screen bg-slate-950 text-white overflow-x-hidden
           95%
         </h3>
         <p className="text-slate-400 mt-2">
-          Accuracy
+          Success Rate
         </p>
       </div>
 
@@ -84,12 +70,12 @@ return ( <main className="min-h-screen bg-slate-950 text-white overflow-x-hidden
 
       <FeatureCard
         title="Code Reviews"
-        description="Receive detailed feedback and improvement suggestions."
+        description="Receive instant feedback on your coding performance and solutions."
       />
 
       <FeatureCard
         title="Progress Analytics"
-        description="Track performance and identify weak areas."
+        description="Track strengths, weaknesses, and readiness scores over time."
       />
     </div>
   </section>
@@ -102,7 +88,7 @@ return ( <main className="min-h-screen bg-slate-950 text-white overflow-x-hidden
       </h2>
 
       <p className="text-slate-400 mb-8">
-        Visualize your growth and readiness score over time.
+        Visualize your growth, track performance, and identify areas for improvement.
       </p>
 
       <ProgressChart />
@@ -117,15 +103,24 @@ return ( <main className="min-h-screen bg-slate-950 text-white overflow-x-hidden
       </h2>
 
       <p className="text-slate-400 mb-8">
-        Start practicing today and improve your confidence with AI-powered feedback.
+        Join thousands of candidates improving their interview skills with AI-powered practice and feedback.
       </p>
 
-      <button
-        onClick={testSupabase}
-        className="px-8 py-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 transition font-semibold text-slate-950"
-      >
-        Get Started
-      </button>
+      <div className="flex flex-col sm:flex-row justify-center gap-4">
+        <Link
+          href="/login"
+          className="px-8 py-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 transition font-semibold text-slate-950"
+        >
+          Login
+        </Link>
+
+        <Link
+          href="/signup"
+          className="px-8 py-4 rounded-xl border border-cyan-500 text-cyan-400 hover:bg-cyan-500/10 transition font-semibold"
+        >
+          Sign Up
+        </Link>
+      </div>
     </div>
   </section>
 </main>
