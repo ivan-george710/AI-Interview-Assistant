@@ -1,6 +1,6 @@
 "use client";
 
-import Navbar from "@/components/Navbar";
+
 import Hero from "@/components/Hero";
 import FeatureCard from "@/components/FeatureCard";
 import ProgressChart from "@/components/ProgressChart";
@@ -19,9 +19,9 @@ alert("Check browser console");
 
 };
 
-return ( <main className="min-h-screen bg-slate-950 text-white overflow-x-hidden"> <Navbar />
+return ( <main className="min-h-screen bg-slate-950 text-white overflow-x-hidden"> 
 
-```
+
   {/* Hero */}
   <Hero />
 
