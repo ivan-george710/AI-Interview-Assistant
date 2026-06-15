@@ -17,7 +17,7 @@ export default function LeaderboardPage() {
       try {
         const response =
           await fetch(
-            "http://localhost:8000/leaderboard"
+            `${process.env.NEXT_PUBLIC_API_URL}/leaderboard`
           );
 
         const data =

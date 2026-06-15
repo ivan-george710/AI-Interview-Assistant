@@ -140,7 +140,7 @@ export default function ContestDetailsPage({
 
     const contestRes =
       await fetch(
-        `http://localhost:8000/contests/${params.id}`
+        `${process.env.NEXT_PUBLIC_API_URL}/contests/${params.id}`
       );
 
     const contestData =
@@ -152,7 +152,7 @@ export default function ContestDetailsPage({
 
     const problemRes =
       await fetch(
-        `http://localhost:8000/contests/${params.id}/problems`
+        `${process.env.NEXT_PUBLIC_API_URL}/contests/${params.id}/problems`
       );
 
     const problemData =
@@ -164,7 +164,7 @@ export default function ContestDetailsPage({
 
     const statsRes =
       await fetch(
-        `http://localhost:8000/contests/${params.id}/stats`
+        `${process.env.NEXT_PUBLIC_API_URL}/contests/${params.id}/stats`
       );
 
     const statsData =

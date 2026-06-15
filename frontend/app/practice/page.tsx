@@ -780,7 +780,7 @@ export default function PracticePage() {
 
             const submitResponse =
               await fetch(
-              "http://localhost:8000/submit",
+              `${process.env.NEXT_PUBLIC_API_URL}/submit`,
               {
                 method:
                   "POST",
@@ -895,7 +895,7 @@ export default function PracticePage() {
 
       const response =
         await fetch(
-          "http://localhost:8000/api/ai/hint",
+          `${process.env.NEXT_PUBLIC_API_URL}/api/ai/hint`,
           {
             method:
               "POST",
@@ -947,7 +947,7 @@ export default function PracticePage() {
 
       const response =
         await fetch(
-          "http://localhost:8000/api/ai/review",
+          `${process.env.NEXT_PUBLIC_API_URL}/api/ai/review`,
           {
             method:
               "POST",

@@ -46,7 +46,7 @@ export default function ContestProblemPage({
 
     const response =
       await fetch(
-        `http://localhost:8000/contests/problem/${params.problemId}`
+       `${process.env.NEXT_PUBLIC_API_URL}/contests/problem/${params.problemId}`
       );
 
     const data =
@@ -177,7 +177,7 @@ export default function ContestProblemPage({
         ).supabase.auth.getUser();
 
       await fetch(
-        "http://localhost:8000/contests/submit",
+        `${process.env.NEXT_PUBLIC_API_URL}/contests/submit`,
         {
           method: "POST",
 

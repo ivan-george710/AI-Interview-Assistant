@@ -35,7 +35,7 @@ export default function CreateContestPage() {
 
       const res =
         await fetch(
-          "http://localhost:8000/questions"
+          `${process.env.NEXT_PUBLIC_API_URL}/questions`
         );
 
       const data =
@@ -118,7 +118,7 @@ export default function CreateContestPage() {
 
       const contestRes =
         await fetch(
-          `http://localhost:8000/contests?admin_id=${adminId}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/contests?admin_id=${adminId}`,
           {
             method: "POST",
 
@@ -161,7 +161,7 @@ export default function CreateContestPage() {
       ) {
 
         await fetch(
-          "http://localhost:8000/contest-problems",
+          `${process.env.NEXT_PUBLIC_API_URL}/contest-problems`,
           {
             method: "POST",
 
