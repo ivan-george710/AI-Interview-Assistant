@@ -1,406 +1,512 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Sidebar from "@/components/Sidebar";
-import Editor from "@monaco-editor/react";
-import {
-  Play,
-  Send,
-  Lightbulb,
-  MessageSquareCode,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  Heart, 
-  Bookmark
-} from "lucide-react";
+import { useEffect, useState } from "react";
+
 import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/context/AuthContext";
+
+import FilterBar from "@/components/practice/FilterBar";
+import QuestionSidebar from "@/components/practice/QuestionSidebar";
+import QuestionPanel from "@/components/practice/QuestionPanel";
+import CodeEditorPanel from "@/components/practice/CodeEditorPanel";
+import ConsolePanel from "@/components/practice/ConsolePanel";
+import SubmissionHistory from "@/components/practice/SubmissionHistory";
+import ProgressHeader from "@/components/practice/ProgressHeader";
+
+type PracticeUser = {
+  id: string;
+};
+
+type Question = {
+  id: number | string;
+  problem_id?: number | string;
+  title: string;
+  description?: string;
+  difficulty?: string;
+  company?: string;
+  tags?: string | string[];
+  starter_code?: string | Record<string, string>;
+  examples?: string | unknown;
+  constraints?: string | unknown;
+};
+
+type Submission = {
+  id?: number | string;
+  problem_id: number | string;
+  status: string;
+  score?: number;
+  xp_earned?: number;
+  submitted_at?: string;
+};
+
+type Metrics = {
+  time: string;
+  memory: string;
+};
+
+function getErrorMessage(
+  payload: {
+    message?: string;
+    detail?: string | {
+      message?: string;
+      error?: string;
+      hint?: string;
+    };
+  }
+) {
+  if (payload.message) {
+    return payload.message;
+  }
+
+  if (typeof payload.detail === "string") {
+    return payload.detail;
+  }
+
+  if (payload.detail) {
+    return [
+      payload.detail.message,
+      payload.detail.error,
+      payload.detail.hint
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  return "Failed to save submission";
+}
 
 export default function PracticePage() {
-  const { user } = useAuth();
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [search, setSearch] =
-  useState("");
 
-const [difficultyFilter,
-setDifficultyFilter] =
-  useState("All");
+  const [loading, setLoading] =
+    useState(true);
 
-const [companyFilter,
-setCompanyFilter] =
-  useState("All");
-  const [topicFilter,
-setTopicFilter] =
-  useState("All");
+  const [user, setUser] =
+    useState<PracticeUser | null>(null);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [startedAt, setStartedAt] =
-    useState(
-      new Date().toISOString()
-    );
+  const [questions, setQuestions] =
+    useState<Question[]>([]);
 
-  const [language, setLanguage] = useState<"javascript" | "python" | "java" | "cpp">("javascript");
-  const [code, setCode] = useState("");
-  const [customInput, setCustomInput] = useState("");
-  const [output, setOutput] = useState("Code execution output will appear here...");
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [metrics, setMetrics] = useState<{ time: string; memory: string } | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] =
+    useState(0);
 
-  const [hint, setHint] = useState("");
-  const [review, setReview] = useState("");
-  const [isLoadingHint, setIsLoadingHint] = useState(false);
-  const [isLoadingReview, setIsLoadingReview] = useState(false);
-  
-  const [showHintModal, setShowHintModal] = useState(false);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [favorites,
-setFavorites] =
-  useState<string[]>([]);
+  const [favorites, setFavorites] =
+    useState<string[]>([]);
 
   const [bookmarks, setBookmarks] =
-  useState<string[]>([]);
+    useState<string[]>([]);
 
-  // Fetch questions from Supabase
+  const [solvedIds, setSolvedIds] =
+    useState<string[]>([]);
+
+  const [submissionHistory, setSubmissionHistory] =
+    useState<Submission[]>([]);
+
+  const [profileXp, setProfileXp] =
+    useState(0);
+
+  const [language, setLanguage] =
+    useState("javascript");
+
+  const [code, setCode] =
+    useState("");
+
+  const [output, setOutput] =
+    useState("");
+
+  const [customInput, setCustomInput] =
+    useState("");
+
+  const [metrics, setMetrics] =
+    useState<Metrics | null>(null);
+
+  const [isExecuting, setIsExecuting] =
+    useState(false);
+
+  const [search, setSearch] =
+    useState("");
+
+  const [difficultyFilter, setDifficultyFilter] =
+    useState("All");
+
+  const [companyFilter, setCompanyFilter] =
+    useState("All");
+
+  const [topicFilter, setTopicFilter] =
+    useState("All");
+
   useEffect(() => {
-    const fetchQuestions = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('questions')
-          .select('*')
-          .order('title'); // Or some ordering logic
-        
-        if (error) throw error;
-        
-        console.log("Questions fetched:", data);
-        if (data && data.length > 0) {
-          setQuestions(data);
-        }
-      } catch (error) {
-        console.error("Error fetching questions:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchQuestions();
+    initialize();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  
-
-  const question = questions[currentQuestionIndex];
-  const filteredQuestions =
-  questions.filter(
-    (question) => {
-
-      const matchesSearch =
-        question.title
-          .toLowerCase()
-          .includes(
-            search.toLowerCase()
-          );
-
-      const matchesDifficulty =
-        difficultyFilter ===
-          "All" ||
-        question.difficulty ===
-          difficultyFilter;
-
-      const matchesCompany =
-        companyFilter ===
-          "All" ||
-        question.company ===
-          companyFilter;
-          const matchesTopic =
-  topicFilter ===
-    "All" ||
-  question.tags?.includes(
-    topicFilter
-  );
-
-      return (
-  matchesSearch &&
-  matchesDifficulty &&
-  matchesCompany &&
-  matchesTopic
-);
-    }
-  );
-
-
-  // Update code when question or language changes
-  useEffect(() => {
-    if (question) {
-      let fallbackCode = "";
-      if (language === "java") {
-        fallbackCode = `class Solution {\n    public Object ${question.function_name}() {\n        // Your code here\n        return null;\n    }\n}`;
-      } else if (language === "cpp") {
-        fallbackCode = `class Solution {\npublic:\n    auto ${question.function_name}() {\n        // Your code here\n        return 0;\n    }\n};`;
-      }
-      
-      setCode(question.starter_code?.[language] || fallbackCode);
-      setOutput("Code execution output will appear here...");
-      setMetrics(null);
-    }
-  }, [currentQuestionIndex, language, question]);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-950 text-white">
-        <Loader2 className="animate-spin mr-2" />
-        Loading questions...
-      </div>
-    );
-  }
-
-  if (!question) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-950 text-white">
-        No questions found.
-      </div>
-    );
-  }
-
-  async function loadFavorites() {
+  async function initialize() {
 
     const {
-      data: { user },
+      data: { user }
     } =
       await supabase.auth.getUser();
+
+    setUser(user);
+
+    await fetchQuestions();
+
+    if (user) {
+
+      await loadFavorites(
+        user.id
+      );
+
+      await loadBookmarks(
+        user.id
+      );
+
+      await loadSolvedProblems(
+        user.id
+      );
+
+      await loadProfile(
+        user.id
+      );
+
+    }
+
+    setLoading(false);
+  }
+
+  async function fetchQuestions() {
+
+    const {
+      data,
+      error
+    } =
+      await supabase
+        .from("questions")
+        .select("*");
+
+    if (!error) {
+
+      setQuestions(
+        data || []
+      );
+
+      if (
+        data &&
+        data.length > 0
+      ) {
+
+        setCode(
+          getStarterCode(
+            data[0],
+            language
+          )
+        );
+
+      }
+    }
+  }
+
+  async function loadProfile(
+    userId: string
+  ) {
+
+    const {
+      data
+    } =
+      await supabase
+        .from(
+          "profiles"
+        )
+        .select(
+          "xp"
+        )
+        .eq(
+          "id",
+          userId
+        )
+        .single();
+
+    setProfileXp(
+      data?.xp || 0
+    );
+  }
+
+  async function loadFavorites(
+    userId: string
+  ) {
+
+    const {
+      data
+    } =
+      await supabase
+        .from(
+          "favorite_questions"
+        )
+        .select(
+          "question_id"
+        )
+        .eq(
+          "user_id",
+          userId
+        );
+
+    setFavorites(
+      data?.map(
+        (item) =>
+          String(
+            item.question_id
+          )
+      ) || []
+    );
+  }
+
+  async function loadBookmarks(
+    userId: string
+  ) {
+
+    const {
+      data
+    } =
+      await supabase
+        .from(
+          "bookmarked_questions"
+        )
+        .select(
+          "question_id"
+        )
+        .eq(
+          "user_id",
+          userId
+        );
+
+    setBookmarks(
+      data?.map(
+        (item) =>
+          String(
+            item.question_id
+          )
+      ) || []
+    );
+  }
+
+  async function loadSolvedProblems(
+    userId: string
+  ) {
+
+    const {
+      data
+    } =
+      await supabase
+        .from(
+          "submissions"
+        )
+        .select(
+          "problem_id,status"
+        )
+        .eq(
+          "user_id",
+          userId
+        )
+        .eq(
+          "status",
+          "Accepted"
+        );
+
+    setSolvedIds(
+      data?.map(
+        (item) =>
+          String(
+            item.problem_id
+          )
+      ) || []
+    );
+  }
+
+  const filteredQuestions =
+    questions.filter(
+      (question) => {
+
+        const searchMatch =
+          question.title
+            .toLowerCase()
+            .includes(
+              search.toLowerCase()
+            );
+
+        const difficultyMatch =
+          difficultyFilter ===
+            "All" ||
+          question.difficulty ===
+            difficultyFilter;
+
+        const companyMatch =
+          companyFilter ===
+            "All" ||
+          question.company ===
+            companyFilter;
+
+        const topicMatch =
+          topicFilter ===
+            "All" ||
+          question.tags?.includes(
+            topicFilter
+          );
+
+        return (
+          searchMatch &&
+          difficultyMatch &&
+          companyMatch &&
+          topicMatch
+        );
+      }
+    );
+
+  const question =
+    filteredQuestions[
+      currentQuestionIndex
+    ];
+
+  function getQuestionProblemId(
+    selectedQuestion: Question | null | undefined
+  ): string | null {
+
+    const rawId =
+      selectedQuestion?.id;
+
+    if (
+      typeof rawId === "string" &&
+      rawId.trim()
+    ) {
+      return rawId;
+    }
+
+    return rawId == null
+      ? null
+      : String(rawId);
+  }
+
+  function getStarterCode(
+    selectedQuestion: Question | null | undefined,
+    selectedLanguage: string
+  ): string {
+
+    const starterCode =
+      selectedQuestion?.starter_code;
+
+    if (
+      starterCode &&
+      typeof starterCode ===
+        "object" &&
+      !Array.isArray(starterCode)
+    ) {
+      return (
+        starterCode[
+          selectedLanguage
+        ] || ""
+      );
+    }
+
+    return typeof starterCode ===
+      "string"
+      ? starterCode
+      : "";
+  }
+
+  useEffect(() => {
+    // Reset the selected row when filters change so the index stays inside the filtered list.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCurrentQuestionIndex(0);
+  }, [
+    search,
+    difficultyFilter,
+    companyFilter,
+    topicFilter
+  ]);
+
+  useEffect(() => {
+
+  if (!question)
+    return;
+
+  // Keep the editor in sync with question/language switches.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  setCode(
+    getStarterCode(
+      question,
+      language
+    )
+  );
+
+  if (
+    user &&
+    question
+  ) {
+
+    const problemId =
+      getQuestionProblemId(
+        question
+      );
+
+    if (problemId) {
+      loadSubmissionHistory(
+        problemId
+      );
+    }
+
+  }
+
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [
+  currentQuestionIndex,
+  question?.id,
+  language,
+  user?.id
+]);
+  async function loadSubmissionHistory(
+    problemId: string
+  ) {
 
     if (!user) return;
 
     const {
-      data,
-      error,
-    } = await supabase
-      .from(
-        "favorite_questions"
-      )
-      .select(
-        "question_id"
-      )
-      .eq(
-        "user_id",
-        user.id
-      );
+      data
+    } =
+      await supabase
+        .from(
+          "submissions"
+        )
+        .select("*")
+        .eq(
+          "user_id",
+          user.id
+        )
+        .eq(
+          "problem_id",
+          problemId
+        )
+        .order(
+          "submitted_at",
+          {
+            ascending: false,
+          }
+        );
 
-    if (error) {
-      console.log(error);
+    setSubmissionHistory(
+      data || []
+    );
+  }
+    async function toggleFavorite() {
+
+    if (!user || !question)
       return;
-    }
 
-    setFavorites(
-      data.map(
-        (item) =>
-          item.question_id
-      )
-    );
-  };
+    const questionId =
+      String(question.id);
 
-  
-
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setLanguage(e.target.value as any);
-  };
-
-  const handleEditorChange = (value: string | undefined) => {
-    if (value !== undefined) {
-      setCode(value);
-    }
-  };
-
-  const navigateQuestion = (
-    direction: 1 | -1
-  ) => {
-    const newIndex =
-      currentQuestionIndex +
-      direction;
-
-    if (
-      newIndex >= 0 &&
-      newIndex < questions.length
-    ) {
-      setStartedAt(
-        new Date().toISOString()
+    const isFavorite =
+      favorites.includes(
+        questionId
       );
 
-      setCurrentQuestionIndex(
-        newIndex
-      );
-    }
-  };
+    if (isFavorite) {
 
-  
-
-  const executeCode = async (type: "run" | "submit") => {
-    if (!question) return;
-
-    setIsExecuting(true);
-    setMetrics(null);
-    setOutput(type === "submit" ? "Evaluating against hidden test cases..." : "Sending to execution engine...");
-    
-    try {
-      const response = await fetch("/api/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          language,
-          code,
-          stdin: customInput,
-          type,
-          questionId: question.id
-        })
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        setOutput(`Error: ${data.error || 'Failed to execute code'}`);
-        setIsExecuting(false);
-        return;
-      }
-
-      if (data.success) {
-
-  setOutput(
-    `Accepted!\n\nYour code successfully passed all hidden test cases.\n\nConsole Output:\n${data.output}`
-  );
-
-  try {
-
-    await fetch(
-      "http://localhost:8000/submit",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-          "application/json",
-        },
-        body: JSON.stringify({
-          user_id: user?.id,
-          problem_id: question.id,
-          
-        }),
-      }
-    );
-
-
-  } catch (err) {
-
-    console.error(
-      "Failed to save submission",
-      err
-    );
-
-  }
-}
-
-      setMetrics({
-        time: data.metrics?.time?.toString() || "0",
-        memory: data.metrics?.memory?.toString() || "0"
-      });
-
-    } catch (err: any) {
-      setOutput(`Failed to connect to execution server: ${err.message}`);
-    } finally {
-      setIsExecuting(false);
-    }
-  };
-  const getHint = async () => {
-  if (!question) return;
-
-  setIsLoadingHint(true);
-
-  try {
-    const response = await fetch(
-      "http://localhost:8000/api/ai/hint",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          questionTitle: question.title,
-          questionDescription: question.description,
-          language,
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    setHint(data.hint);
-    setShowHintModal(true); // OPEN MODAL
-  } catch (error) {
-    console.error(error);
-    setHint("Failed to generate hint.");
-    setShowHintModal(true); // SHOW ERROR
-  } finally {
-    setIsLoadingHint(false);
-  }
-};
-   
-const toggleFavorite = async () => {
-  if (!question) return;
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return;
-
-  const isFavorite =
-    favorites.includes(question.id);
-
-  if (isFavorite) {
-
-    await supabase
-      .from("favorite_questions")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("question_id", question.id);
-
-    setFavorites(
-      favorites.filter(
-        (id) => id !== question.id
-      )
-    );
-
-  } else {
-
-    await supabase
-      .from("favorite_questions")
-      .insert({
-        user_id: user.id,
-        question_id: question.id,
-      });
-
-    setFavorites([
-      ...favorites,
-      question.id,
-    ]);
-  }
-};
-  
-const reviewCode = async () => {
-  if (!question) return;
-
-  const toggleFavorite = async () => {
-  if (!question) return;
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return;
-
-  const isFavorite =
-    favorites.includes(question.id);
-
-  if (isFavorite) {
-    const { error } =
       await supabase
         .from(
           "favorite_questions"
@@ -415,459 +521,661 @@ const reviewCode = async () => {
           question.id
         );
 
-    if (error) {
-      console.log(error);
-      return;
-    }
+      setFavorites(
+        favorites.filter(
+          (id) =>
+            id !==
+            questionId
+        )
+      );
 
-    setFavorites(
-      favorites.filter(
-        (id) => id !== question.id
-      )
-    );
-  } else {
-    const { error } =
+    } else {
+
       await supabase
         .from(
           "favorite_questions"
         )
         .insert({
-          user_id: user.id,
+          user_id:
+            user.id,
           question_id:
             question.id,
         });
 
-    if (error) {
-      console.log(error);
+      setFavorites([
+        ...favorites,
+        questionId,
+      ]);
+
+    }
+  }
+
+  async function toggleBookmark() {
+
+    if (!user || !question)
+      return;
+
+    const questionId =
+      String(question.id);
+
+    const isBookmarked =
+      bookmarks.includes(
+        questionId
+      );
+
+    if (
+      isBookmarked
+    ) {
+
+      await supabase
+        .from(
+          "bookmarked_questions"
+        )
+        .delete()
+        .eq(
+          "user_id",
+          user.id
+        )
+        .eq(
+          "question_id",
+          question.id
+        );
+
+      setBookmarks(
+        bookmarks.filter(
+          (id) =>
+            id !==
+            questionId
+        )
+      );
+
+    } else {
+
+      await supabase
+        .from(
+          "bookmarked_questions"
+        )
+        .insert({
+          user_id:
+            user.id,
+          question_id:
+            question.id,
+        });
+
+      setBookmarks([
+        ...bookmarks,
+        questionId,
+      ]);
+
+    }
+  }
+
+  function nextQuestion() {
+
+    if (
+      currentQuestionIndex <
+      filteredQuestions.length -
+        1
+    ) {
+
+      setCurrentQuestionIndex(
+        (
+          prev
+        ) =>
+          prev + 1
+      );
+
+    }
+  }
+
+  function previousQuestion() {
+
+    if (
+      currentQuestionIndex >
+      0
+    ) {
+
+      setCurrentQuestionIndex(
+        (
+          prev
+        ) =>
+          prev - 1
+      );
+
+    }
+  }
+
+  function randomQuestion() {
+
+    if (
+      filteredQuestions.length ===
+      0
+    )
+      return;
+
+    const randomIndex =
+      Math.floor(
+        Math.random() *
+          filteredQuestions.length
+      );
+
+    setCurrentQuestionIndex(
+      randomIndex
+    );
+  }
+
+  async function executeCode(
+    type:
+      | "run"
+      | "submit"
+  ) {
+
+    if (!question)
+      return;
+
+    const problemId =
+      getQuestionProblemId(
+        question
+      );
+
+    if (
+      type === "submit" &&
+      !problemId
+    ) {
+      setOutput(
+        "This question is missing a question id. Submissions require submissions.problem_id to reference questions.id."
+      );
       return;
     }
 
-    setFavorites([
-      ...favorites,
-      question.id,
-    ]);
-  }
-};
+    if (
+      type === "submit" &&
+      !user
+    ) {
+      setOutput(
+        "Please sign in before submitting."
+      );
+      return;
+    }
 
-  setIsLoadingReview(true);
-
-  try {
-    const response = await fetch(
-      "http://localhost:8000/api/ai/review",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          questionTitle: question.title,
-          questionDescription: question.description,
-          userCode: code,
-          language,
-        }),
-      }
+    setIsExecuting(
+      true
     );
 
-    const data = await response.json();
+    setMetrics(
+      null
+    );
 
-    setReview(data.review);
-    setShowReviewModal(true); // OPEN MODAL
-  } catch (error) {
-    console.error(error);
-    setReview("Failed to generate review.");
-    setShowReviewModal(true); // SHOW ERROR
-  } finally {
-    setIsLoadingReview(false);
-  }
-};  
-return (
-    <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
-      <Sidebar />
+    setOutput(
+      type ===
+        "submit"
+        ? "Evaluating against hidden test cases..."
+        : "Running..."
+    );
 
-      <main className="flex-1 p-6 flex flex-col overflow-hidden">
-        <header className="mb-6 shrink-0 flex justify-between items-end">
-        <div className="flex flex-wrap gap-3 mt-4">
+    try {
 
-  <input
-    type="text"
-    placeholder="Search Questions..."
-    value={search}
-    onChange={(e) =>
-      setSearch(
-        e.target.value
-      )
-    }
-    className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2"
-  />
+      const response =
+        await fetch(
+          "/api/execute",
+          {
+            method:
+              "POST",
 
-  <select
-    value={
-      difficultyFilter
-    }
-    onChange={(e) =>
-      setDifficultyFilter(
-        e.target.value
-      )
-    }
-    className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2"
-  >
-    <option>
-      All
-    </option>
-    <option>
-      Easy
-    </option>
-    <option>
-      Medium
-    </option>
-    <option>
-      Hard
-    </option>
-  </select>
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-  <select
-    value={companyFilter}
-    onChange={(e) =>
-      setCompanyFilter(
-        e.target.value
-      )
-    }
-    className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2"
-  >
-    <option>
-      All
-    </option>
+            body: JSON.stringify(
+              {
+                language,
+                code,
+                stdin:
+                customInput,
+                type,
+                questionId:
+                  type === "submit"
+                    ? problemId
+                    : question.id,
+              }
+            ),
+          }
+        );
 
-    <option>
-      Google
-    </option>
-
-    <option>
-      Amazon
-    </option>
-
-    <option>
-      Microsoft
-    </option>
-
-    <option>
-      Meta
-    </option>
-  </select>
-
-  <button
-    onClick={() => {
+      const data =
+        await response.json();
 
       if (
-        filteredQuestions.length ===
-        0
-      )
+        !response.ok
+      ) {
+
+        setOutput(
+          `Error: ${
+            data.error ||
+            "Execution failed"
+          }`
+        );
+
         return;
+      }
 
-      const randomIndex =
-        Math.floor(
-          Math.random() *
-            filteredQuestions.length
+      if (
+        data.success
+      ) {
+
+        setOutput(
+          type ===
+            "submit"
+            ? `Accepted!\n\n${data.output}`
+            : data.output
         );
 
-      const randomQuestion =
-        filteredQuestions[
-          randomIndex
-        ];
+        if (
+          type ===
+            "submit"
+        ) {
 
-      const index =
-        questions.findIndex(
-          (q) =>
-            q.id ===
-            randomQuestion.id
-        );
+          try {
 
-      setCurrentQuestionIndex(
-        index
+            const submitResponse =
+              await fetch(
+              "http://localhost:8000/submit",
+              {
+                method:
+                  "POST",
+
+                headers:
+                  {
+                    "Content-Type":
+                      "application/json",
+                  },
+
+                body: JSON.stringify(
+                  {
+                    user_id:
+                      user?.id,
+
+                    problem_id:
+                      problemId,
+                  }
+                ),
+              }
+            );
+
+            const submitData =
+              await submitResponse.json();
+
+            if (
+              !submitResponse.ok ||
+              !submitData.success
+            ) {
+              throw new Error(
+                getErrorMessage(
+                  submitData
+                )
+              );
+            }
+
+            if (
+              user
+            ) {
+
+              await loadSolvedProblems(
+                user.id
+              );
+
+              await loadSubmissionHistory(
+                problemId as string
+              );
+
+              await loadProfile(
+                user.id
+              );
+
+            }
+
+          } catch (
+            err
+          ) {
+
+            console.error(
+              err
+            );
+
+            setOutput(
+              `Accepted, but saving the submission failed: ${
+                err instanceof Error
+                  ? err.message
+                  : "Unknown error"
+              }`
+            );
+
+          }
+        }
+
+        setMetrics({
+          time:
+            data.metrics?.time?.toString() ||
+            "0",
+
+          memory:
+            data.metrics?.memory?.toString() ||
+            "0",
+        });
+      }
+
+    } catch (
+      err: unknown
+    ) {
+
+      setOutput(
+        `Error: ${
+          err instanceof Error
+            ? err.message
+            : "Unknown error"
+        }`
       );
-    }}
-    className="bg-cyan-500 text-black px-4 py-2 rounded-xl font-semibold"
-  >
-    Random Question
-  </button>
 
-</div>
-          <div>
-            <h1 className="text-3xl font-bold">Coding Practice</h1>
-            <p className="text-slate-400 mt-2">Solve coding problems with real test-case validation.</p>
-          </div>
-          
-          <div className="flex gap-2">
-             <button 
-                onClick={() => navigateQuestion(-1)}
-                disabled={currentQuestionIndex === 0}
-                className="flex items-center gap-2 bg-slate-900 border border-slate-800 text-slate-300 px-4 py-2 rounded-xl text-sm hover:bg-slate-800 transition disabled:opacity-50"
-             >
-                <ChevronLeft size={16} /> Prev Question
-             </button>
-             <button 
-                onClick={() => navigateQuestion(1)}
-                disabled={currentQuestionIndex === questions.length - 1}
-                className="flex items-center gap-2 bg-slate-900 border border-slate-800 text-slate-300 px-4 py-2 rounded-xl text-sm hover:bg-slate-800 transition disabled:opacity-50"
-             >
-                Next Question <ChevronRight size={16} />
-             </button>
-          </div>
-        </header>
+    } finally {
 
-        <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
-          
-          {/* Left Panel: Question */}
-          <div className="col-span-3 bg-slate-900 rounded-2xl border border-slate-800 flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-slate-800 bg-slate-900/50 shrink-0">
-            <div className="flex justify-between items-center">
+      setIsExecuting(
+        false
+      );
 
-  <h2 className="text-xl font-bold">
-    {question.title}
-  </h2>
+    }
+  }
 
-  <button
-  onClick={toggleFavorite}
->
-    <Heart
-      className={`w-5 h-5 ${
-        favorites.includes(
-          question.id
-        )
-          ? "fill-red-500 text-red-500"
-          : "text-slate-400"
-      }`}
-    />
-  </button>
+  async function getHint() {
 
-</div>
-               <div className="flex flex-wrap gap-2 mt-2">
-                 <span className={`px-2 py-1 rounded-md text-xs font-medium ${question.difficulty === 'Easy' ? 'bg-emerald-500/10 text-emerald-400' : question.difficulty === 'Medium' ? 'bg-yellow-500/10 text-yellow-400' : 'bg-red-500/10 text-red-400'}`}>
-                    {question.difficulty}
-                 </span>
-                 {question.tags?.map((tag: string) => (
-                   <span key={tag} className="px-2 py-1 bg-slate-800 text-slate-300 rounded-md text-xs font-medium">{tag}</span>
-                 ))}
-               </div>
-            </div>
-            
-            <div className="p-6 flex-1 overflow-y-auto">
-              <div 
-                className="text-slate-300 mb-6 leading-relaxed text-sm"
-                dangerouslySetInnerHTML={{ __html: question.description }}
-              />
+    if (!question)
+      return;
 
-              {question.examples?.map((ex: any, i: number) => (
-                <div key={i} className="mb-6">
-                  <h3 className="font-semibold mb-3 text-slate-200">Example {i + 1}:</h3>
-                  <div className="bg-slate-950 p-4 rounded-xl font-mono text-sm border border-slate-800 text-slate-300">
-                    <span className="text-slate-500">Input:</span> {ex.input}<br/>
-                    <span className="text-slate-500">Output:</span> {ex.output}<br/>
-                    {ex.explanation && (
-                       <><span className="text-slate-500">Explanation:</span> {ex.explanation}</>
-                    )}
-                  </div>
-                </div>
-              ))}
+    try {
 
-              <h3 className="font-semibold mb-3 text-slate-200">Constraints:</h3>
-              <ul className="list-disc list-inside text-slate-400 text-sm space-y-2 font-mono">
-                {question.constraints?.map((c: string, i: number) => (
-                  <li key={i} dangerouslySetInnerHTML={{ __html: c }} />
-                ))}
-              </ul>
-            </div>
-          </div>
+      const response =
+        await fetch(
+          "http://localhost:8000/api/ai/hint",
+          {
+            method:
+              "POST",
 
-          {/* Right Panel: Editor & Output */}
-          <div className="col-span-9 flex flex-col gap-4 min-h-0">
-            
-            {/* Editor Container */}
-            <div className="bg-slate-900 rounded-2xl border border-slate-800 flex-1 flex flex-col overflow-hidden">
-              <div className="p-3 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center shrink-0">
-                 <div className="flex items-center gap-3">
-                   <select 
-                     value={language}
-                     onChange={handleLanguageChange}
-                     className="bg-slate-950 border border-slate-700 text-sm rounded-lg px-3 py-1.5 outline-none focus:border-cyan-500 text-slate-300 cursor-pointer font-medium"
-                   >
-                     <option value="javascript">JavaScript</option>
-                     <option value="python">Python 3</option>
-                     <option value="java">Java</option>
-                     <option value="cpp">C++</option>
-                   </select>
-                   <span className="text-xs text-slate-500 font-mono hidden sm:inline-block">Monaco Engine</span>
-                 </div>
-                 
-                 <div className="flex gap-2">
-                    <button
-  onClick={async () => {
-    await reviewCode();
-  }}
-                      disabled={isLoadingReview}
-                      className="flex items-center gap-2 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-sm hover:bg-slate-800 transition"
-                    >
-                      <MessageSquareCode size={16} className="text-blue-400" />
-                      <span className="hidden lg:inline">
-                        {isLoadingReview ? "Reviewing..." : "AI Review"}
-                      </span>
-                    </button>
-                    <button
-  onClick={async () => {
-    await getHint();
-  }}
-                      disabled={isLoadingHint}
-                      className="flex items-center gap-2 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-sm hover:bg-slate-800 transition"
-                    >
-                      <Lightbulb size={16} className="text-yellow-400" />
-                      <span className="hidden lg:inline">
-                        {isLoadingHint ? "Generating..." : "Hint"}
-                      </span>
-                    </button>
-                 </div>
-              </div>
-              
-              <div className="flex-1 relative">
-                 <Editor
-                   height="100%"
-                   language={language === "cpp" ? "cpp" : language}
-                   theme="vs-dark"
-                   value={code}
-                   onChange={handleEditorChange}
-                   loading={<div className="h-full w-full flex items-center justify-center text-slate-500">Loading Editor...</div>}
-                   options={{
-                     minimap: { enabled: false },
-                     fontSize: 14,
-                     fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
-                     padding: { top: 16 },
-                     scrollBeyondLastLine: false,
-                     smoothScrolling: true,
-                     cursorBlinking: "smooth",
-                     renderLineHighlight: "all"
-                   }}
-                 />
-              </div>
-            </div>
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-          
+            body: JSON.stringify(
+              {
+                questionTitle:
+                  question.title,
 
-            
+                questionDescription:
+                  question.description,
 
-            {/* Terminal / Output Container */}
-            <div className="h-52 bg-slate-900 rounded-2xl border border-slate-800 flex flex-col shrink-0 overflow-hidden">
-               <div className="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 shrink-0">
-                  <div className="flex gap-4">
-                     <span className="text-sm font-semibold text-slate-300">Console & Test Cases</span>
-                  </div>
-                  
-                  <div className="flex gap-3">
-                    <button 
-                      onClick={() => executeCode("run")}
-                      disabled={isExecuting}
-                      className="flex items-center gap-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 px-4 py-1.5 rounded-lg text-sm font-medium transition disabled:opacity-50"
-                    >
-                      <Play size={16} className={isExecuting ? "animate-pulse text-cyan-400" : "text-cyan-400"} /> 
-                      {isExecuting ? "Executing..." : "Run Code"}
-                    </button>
-                    
-                    <button 
-                      onClick={() => executeCode("submit")}
-                      disabled={isExecuting}
-                      className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition bg-cyan-500 hover:bg-cyan-400 text-black disabled:opacity-50`}
-                    >
-                      <Send size={16} /> 
-                      Submit
-                    </button>
-                  </div>
-               </div>
+                language,
+              }
+            ),
+          }
+        );
 
-               <div className="flex flex-1 overflow-hidden">
-                 {/* Custom Input */}
-                 <div className="w-1/3 border-r border-slate-800 p-4 flex flex-col bg-slate-900/30">
-                   <label className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider flex justify-between items-center">
-                     Custom Input
-                     <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[10px]">stdin</span>
-                   </label>
-                   <textarea 
-                     value={customInput}
-                     onChange={(e) => setCustomInput(e.target.value)}
-                     className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm font-mono text-slate-300 outline-none focus:border-slate-700 resize-none placeholder:text-slate-700"
-                     placeholder="Enter raw test data to pass via stdin..."
-                   />
-                 </div>
-                 
-                 {/* Output & Metrics */}
-                 <div className="w-2/3 p-4 flex flex-col bg-[#0d1117]">
-                    <div className="flex justify-between items-center mb-3">
-                      <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Execution Result</label>
-                      
-                      {metrics && (
-                        <div className="flex gap-3 text-xs font-mono">
-                           <span className="bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-md border border-emerald-500/20 flex items-center gap-1.5">
-                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> {metrics.time} ms
-                           </span>
-                           <span className="bg-cyan-500/10 text-cyan-400 px-2.5 py-1 rounded-md border border-cyan-500/20 flex items-center gap-1.5">
-                             <div className="w-1.5 h-1.5 rounded-full bg-cyan-400"></div> {metrics.memory} MB
-                           </span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <pre className={`flex-1 overflow-auto text-sm font-mono p-1 rounded ${output.includes("Accepted") ? "text-emerald-400" : output.includes("Wrong Answer") || output.includes("Error") || output.includes("error:") ? "text-red-400" : "text-slate-300"}`}>
-                      {output}
-                    </pre>
-                 </div>
-               </div>
-            </div>
+      const data =
+        await response.json();
 
-          </div>
-        </div>
-        {showHintModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-[700px] max-w-[90vw]">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-yellow-400">
-                  AI Hint
-                </h2>
+      alert(
+        data.hint ||
+          "No hint available"
+      );
 
-                <button
-                  onClick={() => setShowHintModal(false)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  ✕
-                </button>
-              </div>
+    } catch (
+      err
+    ) {
 
-              <p className="text-slate-200 whitespace-pre-wrap">
-                {hint}
-              </p>
-            </div>
-          </div>
-      )}
+      console.error(
+        err
+      );
 
-      {showReviewModal && (
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-        <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-[900px] max-w-[95vw] max-h-[80vh] overflow-y-auto">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-blue-400">
-              AI Review
-            </h2>
+    }
+  }
 
-            <button
-              onClick={() => setShowReviewModal(false)}
-              className="text-slate-400 hover:text-white"
-            >
-              ✕
-            </button>
-          </div>
+  async function reviewCode() {
 
-          <pre className="text-slate-200 whitespace-pre-wrap">
-            {review}
-          </pre>
-        </div>
+    if (!question)
+      return;
+
+    try {
+
+      const response =
+        await fetch(
+          "http://localhost:8000/api/ai/review",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify(
+              {
+                questionTitle:
+                  question.title,
+
+                questionDescription:
+                  question.description,
+
+                code,
+
+                language,
+              }
+            ),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      alert(
+        data.review ||
+          "No review available"
+      );
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        err
+      );
+
+    }
+  }
+
+  if (
+    loading
+  ) {
+
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+        Loading...
       </div>
-      )} 
-      </main>
+    );
+
+  }
+    return (
+    <div className="min-h-screen bg-slate-950 text-white">
+
+      <div className="p-6 space-y-6">
+
+        <ProgressHeader
+          solved={solvedIds.length}
+          total={questions.length}
+          xp={profileXp}
+          favorites={
+            favorites.length
+          }
+          bookmarks={
+            bookmarks.length
+          }
+        />
+
+        <FilterBar
+          search={search}
+          setSearch={setSearch}
+          difficultyFilter={
+            difficultyFilter
+          }
+          setDifficultyFilter={
+            setDifficultyFilter
+          }
+          companyFilter={
+            companyFilter
+          }
+          setCompanyFilter={
+            setCompanyFilter
+          }
+          topicFilter={
+            topicFilter
+          }
+          setTopicFilter={
+            setTopicFilter
+          }
+        />
+
+        <div className="grid grid-cols-12 gap-6">
+
+          {/* Sidebar */}
+
+          <div className="col-span-3">
+
+            <QuestionSidebar
+              questions={
+                filteredQuestions
+              }
+              currentQuestionId={
+                question?.id?.toString() ||
+                ""
+              }
+              solvedIds={
+                solvedIds
+              }
+              favoriteIds={
+                favorites
+              }
+              bookmarkIds={
+                bookmarks
+              }
+              onSelect={(
+                questionId
+              ) => {
+
+                const index =
+                  filteredQuestions.findIndex(
+                    (q) =>
+                      String(
+                        q.id
+                      ) ===
+                      questionId
+                  );
+
+                if (
+                  index !==
+                  -1
+                ) {
+                  setCurrentQuestionIndex(
+                    index
+                  );
+                }
+              }}
+            />
+
+          </div>
+
+          {/* Main Content */}
+
+          <div className="col-span-9 space-y-6">
+
+            <div className="flex gap-3">
+
+              <button
+                onClick={
+                  previousQuestion
+                }
+                className="bg-slate-800 px-4 py-2 rounded-xl"
+              >
+                Previous
+              </button>
+
+              <button
+                onClick={
+                  nextQuestion
+                }
+                className="bg-slate-800 px-4 py-2 rounded-xl"
+              >
+                Next
+              </button>
+
+              <button
+                onClick={
+                  randomQuestion
+                }
+                className="bg-cyan-600 px-4 py-2 rounded-xl"
+              >
+                Random
+              </button>
+
+            </div>
+
+           <div className="grid grid-cols-2 gap-6">
+
+  <QuestionPanel
+    question={question}
+    isFavorite={favorites.includes(
+      String(question?.id)
+    )}
+    isBookmarked={bookmarks.includes(
+      String(question?.id)
+    )}
+    onToggleFavorite={toggleFavorite}
+    onToggleBookmark={toggleBookmark}
+  />
+
+  <CodeEditorPanel
+    language={language}
+    setLanguage={setLanguage}
+    code={code}
+    setCode={setCode}
+    isExecuting={isExecuting}
+    onRun={() =>
+      executeCode("run")
+    }
+    onSubmit={() =>
+      executeCode("submit")
+    }
+    onHint={getHint}
+    onReview={reviewCode}
+  />
+
+</div>
+
+<ConsolePanel
+  output={output}
+  customInput={customInput}
+  setCustomInput={setCustomInput}
+  metrics={metrics}
+/>
+
+<SubmissionHistory
+  submissions={submissionHistory}
+/>
+
+          </div>
+
+        </div>
+
+      </div>
+
     </div>
   );
 }

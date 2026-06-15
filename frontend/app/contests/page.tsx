@@ -173,3 +173,4 @@ export default function ContestsPage() {
     </div>
   );
 }
+
