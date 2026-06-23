@@ -8,47 +8,124 @@ import AdminStatCard from "@/components/admin/AdminStatCard";
 import AdminTitle from "@/components/admin/AdminTitle";
 
 export default function AdminPage() {
-  const [users, setUsers] = useState(0);
-  const [questions, setQuestions] = useState(0);
-  const [contests, setContests] = useState(0);
-  const [reports, setReports] = useState(0);
-  const [aiRequests, setAiRequests] = useState(0);
+
+  const [users, setUsers] =
+    useState(0);
+
+  const [questions, setQuestions] =
+    useState(0);
+
+  const [contests, setContests] =
+    useState(0);
+
+  const [reports, setReports] =
+    useState(0);
+
+  const [aiRequests, setAiRequests] =
+    useState(0);
+
+  const [assessments, setAssessments] =
+    useState(0);
+
+  const [jobs, setJobs] =
+    useState(0);
+
+  const [roadmaps, setRoadmaps] =
+    useState(0);
+
+  const [interviews, setInterviews] =
+    useState(0);
 
   useEffect(() => {
     loadStats();
   }, []);
 
   const loadStats = async () => {
-    const usersRes = await supabase
-      .from("profiles")
-      .select("*");
 
-    const questionsRes = await supabase
-      .from("questions")
-      .select("*");
+    const usersRes =
+      await supabase
+        .from("profiles")
+        .select("*");
 
-    const contestsRes = await supabase
-      .from("contests")
-      .select("*");
+    const questionsRes =
+      await supabase
+        .from("questions")
+        .select("*");
 
-    const reportsRes = await supabase
-      .from("reports")
-      .select("*");
+    const contestsRes =
+      await supabase
+        .from("contests")
+        .select("*");
 
-    const aiRes = await supabase
-      .from("ai_usage")
-      .select("*");
+    const reportsRes =
+      await supabase
+        .from("reports")
+        .select("*");
 
-    setUsers(usersRes.data?.length || 0);
-    setQuestions(questionsRes.data?.length || 0);
-    setContests(contestsRes.data?.length || 0);
-    setReports(reportsRes.data?.length || 0);
-    setAiRequests(aiRes.data?.length || 0);
+    const aiRes =
+      await supabase
+        .from("ai_usage")
+        .select("*");
+
+    const assessmentsRes =
+      await supabase
+        .from("assessments")
+        .select("*");
+
+    const jobsRes =
+      await supabase
+        .from("jobs")
+        .select("*");
+
+    const roadmapRes =
+      await supabase
+        .from("learning_roadmaps")
+        .select("*");
+
+    const interviewRes =
+      await supabase
+        .from("interview_preparations")
+        .select("*");
+
+    setUsers(
+      usersRes.data?.length || 0
+    );
+
+    setQuestions(
+      questionsRes.data?.length || 0
+    );
+
+    setContests(
+      contestsRes.data?.length || 0
+    );
+
+    setReports(
+      reportsRes.data?.length || 0
+    );
+
+    setAiRequests(
+      aiRes.data?.length || 0
+    );
+
+    setAssessments(
+      assessmentsRes.data?.length || 0
+    );
+
+    setJobs(
+      jobsRes.data?.length || 0
+    );
+
+    setRoadmaps(
+      roadmapRes.data?.length || 0
+    );
+
+    setInterviews(
+      interviewRes.data?.length || 0
+    );
   };
 
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
-
 
       <div className="flex-1">
 
@@ -58,10 +135,10 @@ export default function AdminPage() {
 
           <AdminTitle
             title="Admin Dashboard"
-            subtitle="System analytics and management center"
+            subtitle="AI Interview Assistant Control Center"
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mt-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-8">
 
             <AdminStatCard
               title="Users"
@@ -69,8 +146,18 @@ export default function AdminPage() {
             />
 
             <AdminStatCard
+              title="Assessments"
+              value={String(assessments)}
+            />
+
+            <AdminStatCard
               title="Questions"
               value={String(questions)}
+            />
+
+            <AdminStatCard
+              title="Jobs"
+              value={String(jobs)}
             />
 
             <AdminStatCard
@@ -81,6 +168,16 @@ export default function AdminPage() {
             <AdminStatCard
               title="Reports"
               value={String(reports)}
+            />
+
+            <AdminStatCard
+              title="Roadmaps"
+              value={String(roadmaps)}
+            />
+
+            <AdminStatCard
+              title="Interview Prep"
+              value={String(interviews)}
             />
 
             <AdminStatCard
@@ -111,7 +208,7 @@ export default function AdminPage() {
                   href="/admin/questions"
                   className="bg-slate-800 p-4 rounded-2xl hover:border hover:border-cyan-500"
                 >
-                  Question Management
+                  Question Bank
                 </a>
 
                 <a
@@ -132,7 +229,7 @@ export default function AdminPage() {
                   href="/admin/ai-usage"
                   className="bg-slate-800 p-4 rounded-2xl hover:border hover:border-cyan-500"
                 >
-                  AI Usage Monitoring
+                  AI Analytics
                 </a>
 
               </div>
@@ -153,8 +250,18 @@ export default function AdminPage() {
                 </div>
 
                 <div className="flex justify-between">
+                  <span>Total Assessments</span>
+                  <span>{assessments}</span>
+                </div>
+
+                <div className="flex justify-between">
                   <span>Total Questions</span>
                   <span>{questions}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span>Total Jobs</span>
+                  <span>{jobs}</span>
                 </div>
 
                 <div className="flex justify-between">
@@ -165,6 +272,16 @@ export default function AdminPage() {
                 <div className="flex justify-between">
                   <span>Total Reports</span>
                   <span>{reports}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span>Learning Roadmaps</span>
+                  <span>{roadmaps}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span>Interview Preparations</span>
+                  <span>{interviews}</span>
                 </div>
 
                 <div className="flex justify-between">

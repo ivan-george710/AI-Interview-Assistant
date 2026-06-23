@@ -209,7 +209,7 @@ export default function ResumePage() {
       <div className="max-w-3xl mx-auto">
 
         <h1 className="text-4xl font-bold mb-2">
-          Resume 
+          Resume
         </h1>
 
         <p className="text-slate-400 mb-8">
@@ -297,28 +297,63 @@ export default function ResumePage() {
               account.
             </p>
 
-            <input
-              type="file"
-              accept=".pdf,.doc,.docx"
-              onChange={(e) =>
-                setFile(
-                  e.target.files?.[0] ??
-                    null
-                )
-              }
-              className="mb-6 block"
-            />
+            <div className="mb-6">
 
-            {file && (
-              <p className="text-cyan-400 mb-6">
-                {file.name}
+              <label
+                className="
+                  inline-block
+                  cursor-pointer
+                  bg-slate-950
+                  border
+                  border-slate-700
+                  hover:border-cyan-500
+                  hover:bg-slate-900
+                  px-5
+                  py-3
+                  rounded-xl
+                  transition
+                "
+              >
+                Choose Resume
+
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={(e) =>
+                    setFile(
+                      e.target.files?.[0] ??
+                        null
+                    )
+                  }
+                  className="hidden"
+                />
+              </label>
+
+              <p className="text-slate-400 mt-3">
+                {file
+                  ? file.name
+                  : "No file selected"}
               </p>
-            )}
+
+            </div>
 
             <button
               onClick={uploadResume}
-              disabled={uploading}
-              className="bg-cyan-500 text-black px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition"
+              disabled={
+                uploading || !file
+              }
+              className="
+                bg-cyan-500
+                text-black
+                px-6
+                py-3
+                rounded-xl
+                font-semibold
+                hover:opacity-90
+                transition
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+              "
             >
               {uploading
                 ? "Uploading..."

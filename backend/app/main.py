@@ -9,6 +9,7 @@ from app.routers.profile import router as profile_router
 from app.routers.rank import router as rank_router
 from app.routers.contests import router as contests_router
 from app.routers.assessments import router as assessments_router
+from app.routers.jobs import router as jobs_router
 
 app = FastAPI(
     title="AI Interview Assistant API",
@@ -17,17 +18,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# CORS
-app.add_middleware(
-    CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",
+        "http://localhost:3000"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -47,6 +39,9 @@ app.include_router(daily_challenge_router)
 # Competition Features
 app.include_router(contests_router)
 app.include_router(assessments_router)
+
+# AI Career Hub
+app.include_router(jobs_router)
 
 
 @app.get("/")

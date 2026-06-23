@@ -1,381 +1,450 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
-export default function CreateContestPage() {
+interface Contest {
+  id: string;
+  title: string;
+  description: string;
+  start_time: string;
+  end_time: string;
+  created_at?: string;
+}
 
-  const [title, setTitle] =
-    useState("");
+export default function AdminContestsPage() {
 
-  const [description, setDescription] =
-    useState("");
-
-  const [startTime, setStartTime] =
-    useState("");
-
-  const [endTime, setEndTime] =
-    useState("");
-
-  const [questions, setQuestions] =
-    useState<any[]>([]);
-
-  const [selectedQuestions, setSelectedQuestions] =
-    useState<any[]>([]);
+  const router =
+    useRouter();
 
   const [loading, setLoading] =
+    useState(true);
+
+  const [authorized, setAuthorized] =
     useState(false);
 
+  const [contests, setContests] =
+    useState<Contest[]>([]);
+
+  const [search, setSearch] =
+    useState("");
+
   useEffect(() => {
-    loadQuestions();
+    checkAdmin();
   }, []);
 
-  async function loadQuestions() {
+  async function checkAdmin() {
 
-    try {
+    const {
+      data: { user },
+    } =
+      await supabase.auth.getUser();
 
-      const res =
-        await fetch(
-          "http://localhost:8000/questions"
-        );
+    if (!user) {
 
-      const data =
-        await res.json();
-
-      setQuestions(data);
-
-    } catch (error) {
-
-      console.error(
-        "Failed to load questions",
-        error
-      );
-
-    }
-  }
-
-  function toggleQuestion(
-    question: any
-  ) {
-
-    const exists =
-      selectedQuestions.find(
-        (q) =>
-          q.id ===
-          question.id
-      );
-
-    if (exists) {
-
-      setSelectedQuestions(
-        selectedQuestions.filter(
-          (q) =>
-            q.id !==
-            question.id
-        )
+      router.push(
+        "/login"
       );
 
       return;
     }
 
-    setSelectedQuestions([
-      ...selectedQuestions,
-      {
-        ...question,
-        points: 100,
-      },
-    ]);
-  }
+    const {
+      data: profile,
+      error,
+    } =
+      await supabase
+        .from("profiles")
+        .select("role")
+        .eq(
+          "id",
+          user.id
+        )
+        .single();
 
-  function updatePoints(
-    questionId: string,
-    points: number
-  ) {
+    if (
+      error ||
+      profile?.role !==
+        "admin"
+    ) {
 
-    setSelectedQuestions(
-      selectedQuestions.map(
-        (q) =>
-          q.id ===
-          questionId
-            ? {
-                ...q,
-                points,
-              }
-            : q
-      )
+      router.push(
+        "/dashboard"
+      );
+
+      return;
+    }
+
+    setAuthorized(
+      true
+    );
+
+    await loadContests();
+
+    setLoading(
+      false
     );
   }
 
-  async function createContest() {
+  async function loadContests() {
 
-    setLoading(true);
-
-    try {
-
-      const adminId =
-        prompt(
-          "Enter Admin User ID"
-        ) || "";
-
-      const contestRes =
-        await fetch(
-          `http://localhost:8000/contests?admin_id=${adminId}`,
+    const {
+      data,
+      error,
+    } =
+      await supabase
+        .from("contests")
+        .select("*")
+        .order(
+          "created_at",
           {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              title,
-              description,
-              start_time:
-                startTime,
-              end_time:
-                endTime,
-            }),
+            ascending:
+              false,
           }
         );
 
-      const contestData =
-        await contestRes.json();
+    if (error) {
 
-      if (
-        !contestData.success
-      ) {
-
-        alert(
-          contestData.message
-        );
-
-        return;
-      }
-
-      const contestId =
-        contestData.contest.id;
-
-      for (
-        const question
-        of selectedQuestions
-      ) {
-
-        await fetch(
-          "http://localhost:8000/contest-problems",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              contest_id:
-                contestId,
-
-              problem_id:
-                question.id,
-
-              points:
-                question.points,
-            }),
-          }
-        );
-      }
-
-      alert(
-        "Contest Created Successfully"
+      console.log(
+        error
       );
 
-      setTitle("");
-      setDescription("");
-      setStartTime("");
-      setEndTime("");
-      setSelectedQuestions([]);
-
-    } catch (error) {
-
-      console.error(error);
-
-      alert(
-        "Failed to create contest"
-      );
-
-    } finally {
-
-      setLoading(false);
-
+      return;
     }
+
+    setContests(
+      data || []
+    );
   }
 
+  async function deleteContest(
+    id: string
+  ) {
+
+    const confirmed =
+      window.confirm(
+        "Delete this contest?"
+      );
+
+    if (
+      !confirmed
+    )
+      return;
+
+    const {
+      error,
+    } =
+      await supabase
+        .from(
+          "contests"
+        )
+        .delete()
+        .eq(
+          "id",
+          id
+        );
+
+    if (error) {
+
+      alert(
+        error.message
+      );
+
+      return;
+    }
+
+    loadContests();
+  }
+
+  if (loading) {
+
+    return (
+
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+
+        Loading...
+
+      </div>
+
+    );
+  }
+
+  if (!authorized)
+    return null;
+
+  const now =
+    new Date();
+
+  const activeContests =
+    contests.filter(
+      (
+        contest
+      ) =>
+        new Date(
+          contest.start_time
+        ) <= now &&
+        new Date(
+          contest.end_time
+        ) >= now
+    ).length;
+
+  const upcomingContests =
+    contests.filter(
+      (
+        contest
+      ) =>
+        new Date(
+          contest.start_time
+        ) > now
+    ).length;
+
+  const completedContests =
+    contests.filter(
+      (
+        contest
+      ) =>
+        new Date(
+          contest.end_time
+        ) < now
+    ).length;
+
+  const filteredContests =
+    contests.filter(
+      (
+        contest
+      ) =>
+        contest.title
+          .toLowerCase()
+          .includes(
+            search.toLowerCase()
+          )
+    );
+
   return (
+
     <div className="min-h-screen bg-slate-950 text-white p-8">
 
-      <h1 className="text-4xl font-bold mb-8">
-        Create Contest
-      </h1>
+      <div className="max-w-7xl mx-auto">
 
-      <div className="grid md:grid-cols-2 gap-8">
+        <div className="flex justify-between items-center mb-8">
 
-        <div className="space-y-4">
+          <div>
 
-          <input
-            value={title}
-            onChange={(e) =>
-              setTitle(
-                e.target.value
-              )
-            }
-            placeholder="Contest Title"
-            className="w-full bg-slate-900 p-3 rounded-xl"
-          />
+            <h1 className="text-4xl font-bold">
+              Contest Management
+            </h1>
 
-          <textarea
-            value={description}
-            onChange={(e) =>
-              setDescription(
-                e.target.value
-              )
-            }
-            placeholder="Contest Description"
-            className="w-full bg-slate-900 p-3 rounded-xl h-32"
-          />
+            <p className="text-slate-400 mt-2">
+              Manage all coding contests
+            </p>
 
-          <input
-            type="datetime-local"
-            value={startTime}
-            onChange={(e) =>
-              setStartTime(
-                e.target.value
-              )
-            }
-            className="w-full bg-slate-900 p-3 rounded-xl"
-          />
-
-          <input
-            type="datetime-local"
-            value={endTime}
-            onChange={(e) =>
-              setEndTime(
-                e.target.value
-              )
-            }
-            className="w-full bg-slate-900 p-3 rounded-xl"
-          />
+          </div>
 
           <button
-            onClick={
-              createContest
+            onClick={() =>
+              router.push(
+                "/admin/contests/create"
+              )
             }
-            disabled={loading}
             className="bg-cyan-600 hover:bg-cyan-500 px-6 py-3 rounded-xl font-semibold"
           >
-            {loading
-              ? "Creating..."
-              : "Create Contest"}
+            + Create Contest
           </button>
 
         </div>
 
-        <div>
+        <div className="grid md:grid-cols-4 gap-6 mb-8">
 
-          <h2 className="text-2xl font-bold mb-4">
-            Select Questions
-          </h2>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
 
-          <div className="space-y-3">
+            <p className="text-slate-400">
+              Total Contests
+            </p>
 
-            {questions.map(
-              (
-                question
-              ) => {
+            <h2 className="text-4xl font-bold mt-2">
+              {contests.length}
+            </h2>
 
-                const selected =
-                  selectedQuestions.find(
-                    (
-                      q
-                    ) =>
-                      q.id ===
-                      question.id
-                  );
+          </div>
 
-                return (
-                  <div
-                    key={
-                      question.id
-                    }
-                    className={`p-4 rounded-xl cursor-pointer ${
-                      selected
-                        ? "bg-cyan-600"
-                        : "bg-slate-900"
-                    }`}
-                    onClick={() =>
-                      toggleQuestion(
-                        question
-                      )
-                    }
-                  >
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
 
-                    <div className="flex justify-between">
+            <p className="text-slate-400">
+              Active
+            </p>
 
-                      <div>
+            <h2 className="text-4xl font-bold text-green-400 mt-2">
+              {activeContests}
+            </h2>
 
-                        <h3 className="font-semibold">
-                          {
-                            question.title
-                          }
-                        </h3>
+          </div>
 
-                        <p className="text-sm text-slate-300">
-                          {
-                            question.difficulty
-                          }
-                        </p>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
 
-                      </div>
+            <p className="text-slate-400">
+              Upcoming
+            </p>
 
-                      {selected && (
+            <h2 className="text-4xl font-bold text-yellow-400 mt-2">
+              {upcomingContests}
+            </h2>
 
-                        <input
-                          type="number"
-                          value={
-                            selected.points
-                          }
-                          onClick={(
-                            e
-                          ) =>
-                            e.stopPropagation()
-                          }
-                          onChange={(
-                            e
-                          ) =>
-                            updatePoints(
-                              question.id,
-                              Number(
-                                e.target
-                                  .value
-                              )
-                            )
-                          }
-                          className="w-20 bg-slate-800 rounded px-2"
-                        />
+          </div>
 
-                      )}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+            <p className="text-slate-400">
+              Completed
+            </p>
+
+            <h2 className="text-4xl font-bold text-red-400 mt-2">
+              {completedContests}
+            </h2>
+
+          </div>
+
+        </div>
+
+        <input
+          type="text"
+          placeholder="Search contests..."
+          value={search}
+          onChange={(e) =>
+            setSearch(
+              e.target.value
+            )
+          }
+          className="w-full bg-slate-900 border border-slate-800 p-4 rounded-2xl mb-8"
+        />
+
+        <div className="space-y-4">
+
+          {filteredContests.map(
+            (
+              contest
+            ) => {
+
+              const status =
+                new Date(
+                  contest.start_time
+                ) > now
+                  ? "Upcoming"
+                  : new Date(
+                      contest.end_time
+                    ) < now
+                  ? "Completed"
+                  : "Active";
+
+              return (
+
+                <div
+                  key={
+                    contest.id
+                  }
+                  className="bg-slate-900 border border-slate-800 rounded-2xl p-6"
+                >
+
+                  <div className="flex justify-between items-start">
+
+                    <div>
+
+                      <h2 className="text-2xl font-bold">
+                        {
+                          contest.title
+                        }
+                      </h2>
+
+                      <p className="text-slate-400 mt-2">
+                        {
+                          contest.description
+                        }
+                      </p>
 
                     </div>
 
-                  </div>
-                );
-              }
-            )}
+                    <span
+                      className={`px-4 py-2 rounded-xl font-semibold ${
+                        status ===
+                        "Active"
+                          ? "bg-green-600"
+                          : status ===
+                            "Upcoming"
+                          ? "bg-yellow-600"
+                          : "bg-red-600"
+                      }`}
+                    >
+                      {status}
+                    </span>
 
-          </div>
+                  </div>
+
+                  <div className="mt-4 text-slate-400">
+
+                    <p>
+                      Start:{" "}
+                      {new Date(
+                        contest.start_time
+                      ).toLocaleString()}
+                    </p>
+
+                    <p>
+                      End:{" "}
+                      {new Date(
+                        contest.end_time
+                      ).toLocaleString()}
+                    </p>
+
+                  </div>
+
+                  <div className="flex gap-3 mt-6">
+
+                    <button
+                      onClick={() =>
+                        router.push(
+                          `/admin/contests/${contest.id}`
+                        )
+                      }
+                      className="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded-lg"
+                    >
+                      View Contest
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        deleteContest(
+                          contest.id
+                        )
+                      }
+                      className="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg"
+                    >
+                      Delete
+                    </button>
+
+                  </div>
+
+                </div>
+
+              );
+            }
+          )}
+
+          {filteredContests.length ===
+            0 && (
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400">
+
+              No contests found.
+
+            </div>
+
+          )}
 
         </div>
 
       </div>
 
     </div>
+
   );
 }
